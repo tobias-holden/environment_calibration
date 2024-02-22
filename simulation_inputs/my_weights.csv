@@ -1,0 +1,5 @@
+objective,weight
+shape_score,1.0
+intensity_score,0.01
+prevalence_score,0.00001
+eir_score,10.0
