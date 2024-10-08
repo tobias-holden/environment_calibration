@@ -32,9 +32,9 @@
 5. Set up calibration scheme
      * **calib_coordinator.csv**
        
-        | init_size | batch_size | max_eval | failure_limit |
-        |:---------:|:---:|:---:|:--------------:|
-        | 1000 | 200 | 5000 | 2 |
+        | init_size | init_batches | batch_size | max_eval | failure_limit |
+        |:---------:|:------------:|:----------:|:--------:|:--------------:|
+        | 1000 | 1 | 200 | 5000 | 2 |
 
 6. edit **run_calib.py** with updated experiment name
 
