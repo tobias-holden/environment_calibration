@@ -83,6 +83,85 @@ class MonthlyPfPRAnalyzer(IAnalyzer):
             index=False,
         )
 
+class AnnualPfPRAnalyzer(IAnalyzer):
+    """
+    Take monthly MalariaSummaryReport and pull out the PfPR, Cases, Severe Cases
+    and Population for each agebins.
+    """
+
+    def __init__(
+        self,
+        sweep_variables=None,
+        working_dir="./",
+        start_year=2000,
+        end_year=2001,
+        filter_exists=False,
+    ):
+        super(AnnualPfPRAnalyzer, self).__init__(
+            working_dir=working_dir,
+            filenames=[f"output/MalariaSummaryReport_Yearly{start_year}-{end_year}.json"]
+        )
+
+        self.sweep_variables = sweep_variables or ["Run_Number"]
+        self.start_year = start_year
+        self.end_year = end_year
+        self.filter_exists = filter_exists
+
+    def filter(self, simulation: Simulation):
+        if self.filter_exists:
+            file = os.path.join(simulation.get_path(), self.filenames[0])
+            return os.path.exists(file)
+        else:
+            return True
+
+    def map(self, data, simulation: Simulation):
+        adf = []
+        fname = self.filenames[0]
+
+        for fname in self.filenames:
+            
+            age_bins = data[fname]["Metadata"]["Age Bins"]
+            years = data[fname]["DataByTime"]["Time Of Report"]
+            years = [y / 365 - 1 for y in years]
+            
+            df = pd.DataFrame.from_dict(data[fname]["DataByTimeAndAgeBins"],orient="columns")[:-1]
+            #df["month"] = [[x] * len(age_bins) for x in range(1, len(df) + 1)]
+            df["agebin"] = [age_bins] * len(df)
+            df["Year"] = [[years[x]] * len(age_bins) for x in range(len(df))]
+            df.rename(
+               columns={
+                   "PfPR by Age Bin": "PfPR",
+                   "Annual Clinical Incidence by Age Bin": "Cases",
+                   "Annual Severe Incidence by Age Bin": "Severe_cases",
+                   "Average Population by Age Bin": "Pop"
+               },
+                inplace=True,
+            )
+            df = df[["agebin", "Year","PfPR", "Cases", "Severe_cases", "Pop"]]
+            df = df.explode(list(df.columns))
+           
+            adf = adf + [df]
+
+            adf = pd.concat(adf)
+
+        for sweep_var in self.sweep_variables:
+            if sweep_var in simulation.tags.keys():
+                adf[sweep_var] = simulation.tags[sweep_var]
+
+        return adf
+
+    def reduce(self, all_data):
+        selected = [data for sim, data in all_data.items()]
+        if len(selected) == 0:
+            print("\nWarning: No data have been returned... Exiting...")
+            return
+
+        adf = pd.concat(selected).reset_index(drop=True)
+        adf.to_csv(
+            (os.path.join(self.working_dir, "PfPR_ClinicalIncidence_annual.csv")),
+            index=False,
+        )
+
 
 class EventReporterAnalyzer(IAnalyzer):
     """
