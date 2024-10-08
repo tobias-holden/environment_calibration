@@ -1,7 +1,12 @@
 import sys
 sys.path.append('../')
 import numpy as np
+import warnings
 import pandas as pd
+from pandas.errors import SettingWithCopyWarning
+warnings.simplefilter(action='ignore', category=FutureWarning)
+warnings.simplefilter(action='ignore', category=SettingWithCopyWarning)
+pd.options.mode.chained_assignment = None  # default='warn'
 import os
 import manifest as manifest
 from matplotlib import pyplot as plt
@@ -17,138 +22,107 @@ from compare_to_data.calculate_all_scores import  compute_all_scores, load_case_
 def compute_scores_across_site(site):
     
     scores = compute_all_scores(site)
-    print("Replacing NA")
-    scores = scores.fillna(1.0)
-    
-    print("Applying weights...")
+    #print(scores)
     weights = pd.read_csv(os.path.join(manifest.input_files_path,"my_weights.csv"),index_col=0)
-    print(weights)
+    #print(weights)
     scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
     scores['eir_score'] = [float(weights.at['eir_score','weight'])*val for val in scores['eir_score']]
     scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']]
     scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
     
     scores = scores.rename(columns={"Sample_ID":"param_set"})
-    print("Weighted Scores")
-    print(scores)
+    scores = pd.melt(scores, id_vars="param_set")
+    scores = scores.groupby("param_set")['value'].agg('sum').reset_index(name='score')
+    
     return scores
 
-def plot_incidence(round_num=0,site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='.'):
+def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='.',agebin=5,start_year=0):
     
     best = pd.read_csv(os.path.join(wdir,"emod.best.csv"))
     best = best['param_set'][0]
     
-    #sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,f"CopyOf{site}","PfPR_ClinicalIncidence_monthly.csv"))
+    case_df = load_case_data()
+    # filter to DS_Name
+    case_df = case_df[case_df['DS_Name']==site]
+    # filter to age ov5
+    case_df = case_df[case_df['age']=='ov5']
+    # convert case_df 'year' to start at 0, like simulations
+    case_df['year'] = [(y - start_year) for y in case_df['year']]
+    # sum incidence across year    
+    case_df=case_df.merge(case_df.groupby('year')['repincd'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
+    # normalize monthly incidence so each year sums to 1
+    case_df['norm_repincd'] = case_df.apply(lambda row: (row['repincd'] / row['max_incd']), axis=1)
+    # get average normalized incidence per month
+    rcases = case_df.groupby(['month','DS_Name'])['norm_repincd'].agg(np.nanmean).reset_index()
+    
     sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
-    sim_cases = sim_cases[sim_cases['Sample_ID']==best]
-    sim_cases = sim_cases[sim_cases['agebin']==5]
-    sim_cases = sim_cases.groupby(['Sample_ID', 'Year', 'month'])[['Pop','Cases']].agg(np.nanmean).reset_index()
-    sim_cases = sim_cases.rename(columns={'Year':'year'})
-    
-    #sim_treated = pd.read_csv(os.path.join(manifest.simulation_output_filepath,f"CopyOf{site}","events.csv"))
-    sim_treated = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site, "events.csv"))
-    sim_treated = sim_treated[sim_treated['Event_Name']=="Received_Treatment"]
-    sim_treated = sim_treated[sim_treated['Sample_ID']==best]
-    sim_treated['Age'] = [np.trunc(a/365) for a in sim_treated['Age']]
-    sim_treated = sim_treated[sim_treated['Age'] >= 5]
-    sim_treated['year'] = [np.trunc(t/365) for t in sim_treated['Time']]
-    sim_treated['month'] = sim_treated.apply(lambda row: (row['Time'] - row['year']*365), axis=1)
-    sim_treated['month'] = [np.trunc(m/30.01)+1 for m in sim_treated['month']]
-    sim_treated['month']= sim_treated.apply(lambda row: np.trunc((row['Time'] - (row['year']*365))/30.001)+1, axis=1)
-    sim_treated=sim_treated[sim_treated['month']<=12]
-    sim_treated=sim_treated.groupby(['Sample_ID', 'year','month','Run_Number']).agg("size").reset_index(name='counts')
-    sim_treated['year'] = sim_treated['year']#+start_year
-    sim_treated1 = sim_treated.merge(sim_cases, on=['Sample_ID', 'year','month'], how='inner')
-    sim_treated1['simincd'] = sim_treated1['counts'] / sim_treated1['Pop']
-    sim_treated1 = sim_treated1.groupby(['Sample_ID','month'])['simincd'].agg(np.nanmean).reset_index(name='simincd')
-    #it would be useful to make sure that this is dropping NA in norm_simincd and not just sampleid/month
-    sim_cases1 = sim_treated1
-    sim_cases1=sim_cases1.merge(sim_cases1.groupby(['Sample_ID'])['simincd'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
-    sim_cases1['norm_simincd'] = sim_cases1.apply(lambda row: (row['simincd'] / row['max_simincd']), axis=1)
-    sim_cases1 = sim_cases1.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
-    
-    
-    
-    rcases = load_case_data()
-    # will need to update the simulation coordinator so sapone isnt hardcoded
-    rcases = rcases[rcases['DS_Name']==site]
-    rcases = rcases[rcases['age']=='ov5']
-    #rcases['year'] = [(y - start_year) for y in rcases['year']]
-    rcases=rcases.merge(rcases.groupby('year')['repincd'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
-    
-    rcases['norm_repincd'] = rcases.apply(lambda row: (row['repincd'] / row['max_incd']), axis=1)
-    
-    rcases1 = rcases.groupby('month')['norm_repincd'].agg(np.nanmean).reset_index()
+    # filter to age 5+
+    sim_cases = sim_cases[sim_cases['agebin']==agebin]
+    # get mean population and clinical cases by month, year, and Sample_ID
+    sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
+    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
+    sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
+    # get mean normalized incidence by month/sample_id (across years)
+    sim_cases = sim_cases.groupby(['Sample_ID', 'month','agebin'])['norm_simincd'].agg(np.nanmean).reset_index()
+    # merge simulated normalized monthly incidence with reference data on ['month']
+    score1 = sim_cases.merge(rcases, on ='month')
+    score1 = score1.dropna(subset=['norm_simincd']).reset_index()
+    print(score1)
+    print(best)
+    print(score1['Sample_ID'].unique())
+    score1 = score1[score1['Sample_ID']==best]
+    #print(rcases1)
+    #print(sim_cases1)
+    print(score1)
     plt.figure(3, figsize=(6, 6), dpi=300, tight_layout=True)
-    plt.plot(sim_cases1['month'],sim_cases1['norm_simincd'],label=f"{round_num}-{best}")
-    if round_num ==0 :
-        plt.scatter(rcases1['month'], rcases1['norm_repincd'], label="Reference",color='k')
+    plt.scatter(score1['month'], score1['norm_repincd'], label="Reference",color='k')
+    plt.plot(score1['month'],score1['norm_simincd'],label="Simulation")
     plt.legend()
     plt.xlabel("Month")
     plt.ylabel("Normalized Clinical Incidence")
-    plt.ylim(0, 1.1)
-    plt.xticks(ticks=[1,2,3,4,5,6,7,8,9,10,11,12])
+    #plt.ylim(0, 0.2)
+    
     plt.savefig(os.path.join(plt_dir,f"incidence_{site}.png"))
-    plt.savefig(os.path.join(plt_dir,f"incidence_{site}.pdf"))
-    plt.close(3)
-    
-    plt.figure(4, figsize=(6, 6), dpi=300, tight_layout=True)
-    plt.plot(sim_cases1['month'],sim_cases1['norm_simincd'],label=f"{round_num}-{best}")
-    if round_num ==0 :
-        plt.scatter(rcases1['month'], rcases1['norm_repincd'], label="Reference",color='k')
-    else:
-        plt.scatter(rcases1['month'], rcases1['norm_repincd'],color='k')
-
-    plt.legend()
-    plt.xlabel("Month")
-    plt.ylabel("Normalized Clinical Incidence")
-    plt.ylim(0, 1.1)
-    plt.xticks(ticks=[1,2,3,4,5,6,7,8,9,10,11,12])
-    plt.savefig(os.path.join(plt_dir,f"incidence_{site}_all.png"))
-    plt.savefig(os.path.join(plt_dir,f"incidence_{site}_all.pdf"))
     
     
-    
-    
-def save_EIR(site="", wdir="./"):
+def save_maxEIR(site="", wdir="./"):
     sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"InsetChart.csv"))
     sim_df = sim_df.rename(columns={'Sample_ID':'param_set'})
+  
     best = pd.read_csv(f"{wdir}/emod.best.csv")
     best = best['param_set'][0]
     sim_df = sim_df[sim_df['param_set']==best]
+
+    #print(sim_df)
     sim_df['year'] = [np.trunc(t/365) for t in sim_df['time']]
     sim_df['month'] = sim_df.apply(lambda row: np.trunc((row['time'] - (row['year']*365))/30.001)+1, axis=1)
     last_year= max(sim_df['year'])
     sim_df = sim_df[sim_df['year'] >= last_year-10]
-    # Sum daily to monthly EIR
-    sim_df = sim_df.groupby(['month','year','Run_Number','param_set']).agg(EIR=('Daily EIR', 'sum')).reset_index()
-    # Average across Run Numbers
-    sim_df = sim_df.groupby(['param_set','year','month']).agg(EIR=('EIR','mean')).reset_index()
-    # Find min/max for parameter set
-    sim_df = sim_df.groupby('param_set').agg({'EIR': ['min', 'max']}).droplevel(axis=1, level=0)
-    sim_df = sim_df.reset_index()
-    
+    sim_df = sim_df.groupby(['year','month','Run_Number','param_set']).agg(monthEIR=('Daily EIR', 'sum')).reset_index()
+    sim_df = sim_df.groupby('param_set').agg(maxEIR=('monthEIR','max')).reset_index()
     return sim_df
 
-def save_AnnualIncidence(site="", wdir="./"):
+def save_AnnualIncidence(site="", wdir="./",agebin=5):
     ### Load analyzed monthly MalariaSummaryReport from simulation
-    sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
-    sim_df = sim_df.rename(columns={'Sample_ID':'param_set'})
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_annual.csv"))
+    #print(sim_cases)
+    sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
+    sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
+    # filter to age 5+
+    sim_cases = sim_cases[sim_cases['agebin']==agebin]
+    ##### Score - Mean annual cases per person #####
+    ################################################
+    # get average annual incidence by year (across months) and then across years
+    print(sim_cases)
+    score2 = sim_cases.groupby(['Sample_ID','agebin'])['Inc'].agg(np.nanmean).reset_index()
+    sim_cases = sim_cases.rename(columns={'Sample_ID':'param_set'})
     best = pd.read_csv(f"{wdir}/emod.best.csv")
     best = best['param_set'][0]
-    sim_df = sim_df[sim_df['param_set']==best]
-    # filter to age 5+
-    sim_df = sim_df[sim_df['agebin']==5]
-    # get mean population and clinical cases by month, year, and param_set
-    sim_df = sim_df.groupby(['param_set', 'Year', 'month'])[['Pop','Cases']].agg(np.nanmean).reset_index()
-    sim_df = sim_df.rename(columns={'Year':'year'}) # lower case
+    aci = sim_cases[sim_cases['param_set']==best]
     
-    aci = sim_df.groupby(['param_set', 'year'])['Cases'].agg(np.nanmean).reset_index()
-    aci = sim_df.groupby(['param_set'])['Cases'].agg(np.nanmean).reset_index()
-    # calculate incidence row-wise
     return aci
 
-def plot_prevalence(round_num=0, site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='./'):
+def plot_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='./',start_year=0):
   
     sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"InsetChart.csv"))
     sim_df = sim_df.rename(columns={'Sample_ID':'param_set'})
@@ -157,26 +131,16 @@ def plot_prevalence(round_num=0, site="",plt_dir=os.path.join(manifest.simulatio
     best = best['param_set'][0]
     sim_df = sim_df[sim_df['param_set']==best]
     sim_df['date'] = [timedelta(days=t) + datetime.strptime("19600101", '%Y%m%d') for t in sim_df['time']]
-    #print(sim_df)
-    sim_df['month'] = np.nan
-    sim_df['day'] = np.nan
-    sim_df['year'] = np.nan
-    for index, row in sim_df.iterrows():
-        #print(row['date'])
-        dayof = sim_df['date'][index]
-        sim_df['month'][index] = dayof.month
-        #print(dayof.month)
-        sim_df['day'][index] = dayof.day
-        #print(dayof.month)
-        sim_df['year'][index] = dayof.year
-    
-    #sim_df['year'] = [np.trunc(t/365) for t in sim_df['time']]
-    #sim_df['month'] = sim_df.apply(lambda row: np.trunc((row['time'] - (row['year']*365))/30.001)+1, axis=1)
+    sim_df2 = sim_df
 
-    #sim_df['year'] = sim_df['year'] #+ start_year 
-    #sim_df = sim_df[sim_df['month']<=12]
+    #print(sim_df)
+    sim_df['year'] = [np.trunc(t/365) for t in sim_df['time']]
+    sim_df['month'] = sim_df.apply(lambda row: np.trunc((row['time'] - (row['year']*365))/30.001)+1, axis=1)
+
+    sim_df['year'] = sim_df['year'] + start_year 
+    sim_df = sim_df[sim_df['month']<=12]
     
-    refpcr = pd.read_csv(os.path.join(manifest.PROJECT_DIR,"reference_datasets","Nanoro_microscopy_prevalence_U5.csv"))
+    refpcr = pd.read_csv(os.path.join(manifest.PROJECT_DIR,"reference_datasets","pcr_prevalence_allAge.csv"))
     ref_date_format = '%m/%d/%Y'
     refpcr['month'] = np.nan
     refpcr['day'] = np.nan
@@ -192,44 +156,32 @@ def plot_prevalence(round_num=0, site="",plt_dir=os.path.join(manifest.simulatio
         refpcr['day'][index] = dayof.day
         #print(dayof.month)
         refpcr['year'][index] = dayof.year
-
-    #print(sim_df)
-    sim_df = sim_df[sim_df['year']>=(max(sim_df['year'])-5)]
-    #print(sim_df)
-    sim_df = sim_df.groupby('date')['PCR Parasite Prevalence'].agg('mean').reset_index(name='prevalence') 
-    #print(sim_df)
+    # print(sim_df)
+    # print(refpcr)
+    #exit(1)
     plt.figure(1, figsize=(6, 6), dpi=300, tight_layout=True)
-    
-    plt.plot(sim_df['date'], sim_df['prevalence'],label=f"{round_num}-{best}")
-    if round_num ==0 :
-        plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", c='k')
-    else: 
-        plt.scatter(refpcr['date'], refpcr['ref_prevalence'], c='k')
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fontsize="10")
+    plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference")
+    plt.plot(sim_df['date'],sim_df['PCR Parasite Prevalence'], label="Simulation")
+    plt.legend()
     plt.xlabel("Date")
     plt.ylabel("PCR Parasite Prevalence")
     plt.ylim(0, 1)
-    plt.xticks(rotation=45, ha='right')
-
-    plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}.png"),bbox_inches='tight')
-    plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}.pdf"),bbox_inches='tight')
-    plt.close(1)
+    plt.savefig(os.path.join(plt_dir,f"prevalence_{site}.png"))
     
-    plt.figure(2, figsize=(6, 6), dpi=300, tight_layout=True)
-    
-    plt.plot(sim_df['date'], sim_df['prevalence'],label=f"{round_num}-{best}")
-    if round_num ==0 :
-        plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", c='k')
-    plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fontsize="10")
-    plt.xlabel("Date")
-    plt.ylabel("PCR Parasite Prevalence")
-    plt.ylim(0, 1)
-    plt.xticks(rotation=45, ha='right')
-    plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}_all.png"),bbox_inches='tight')
-    plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}_all.pdf"),bbox_inches='tight')
-    
-    
-# 
+#     sim_df = sim_df.groupby(['month','year'])['PCR Parasite Prevalence'].agg('mean').reset_index(name='PCR Parasite Prevalence') 
+#     
+#     plt.figure(2, figsize=(6, 6), dpi=300, tight_layout=True)
+#     #plt.scatter(refpcr['sim_day'], refpcr['pcr_prevalence'], label="Reference", c='k')
+#     plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", c='k')
+#     #plt.plot(sim_df['time'], sim_df['prevalence'], label='simulation')
+#     plt.plot(sim_df['date'], sim_df['PCR Parasite Prevalence'], label="simulation", marker='o')
+#     plt.xticks(rotation=60)
+#     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fontsize="10")
+#     plt.xlabel("Date")
+#     plt.ylabel("PCR Parasite Prevalence")
+#     plt.ylim(0,1)
+#     plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}.png"),bbox_inches='tight')
+# # 
 #     if param_sets_to_plot is None:
 #         param_sets_to_plot = list(set(scored["param_set"]))
 # 
@@ -259,16 +211,15 @@ def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.s
     return 
    
 if __name__ == "__main__":
-    #plot_all_comparisons(param_sets_to_plot=[1.0,4.0,6.0,9.0,15.0])
-    
-    #if you are running directly from run_full_comparison you are going to probably want to 
-    #manually add a different default numOf_param_sets, for example, numOf_param_sets = 16
-    workdir="/projects/b1139/environmental_calibration/simulations/output/Nanoro_test1"
+
+    workdir="/projects/b1139/environmental_calibration/simulations/output/241007_test2/"
+    site="Nanoro"
     n=0
-    #print(compute_scores_across_site("Sapone"))
-    # mEIR = save_maxEIR(site="Sapone", wdir = f"{workdir}/LF_{n}")
+    #print(compute_scores_across_site(site))
+    # mEIR = save_maxEIR(site=site, wdir = f"{workdir}/LF_{n}")
     # mEIR.to_csv(f"{workdir}/LF_{n}/maxEIR.csv")
-    # ACI = save_AnnualIncidence(site="Sapone", wdir =f"{workdir}/LF_{n}")
+    # ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}")
     # ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
-    plot_prevalence(site="Nanoro", plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
-    plot_incidence(site="Nanoro", plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
+    #plot_incidence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"),agebin=5)
+    plot_prevalence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
+
