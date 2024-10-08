@@ -7,6 +7,7 @@ from idmtools.core import ItemType
 from analyzers.analyzer_collection import (
     EventReporterAnalyzer,
     MonthlyPfPRAnalyzer,
+    AnnualPfPRAnalyzer,
     InsetChartAnalyzer,
     EventReporterSummaryAnalyzer,
     NodeDemographicsAnalyzer,
@@ -57,11 +58,15 @@ def analyze_experiment(platform, expid, wdir, report_start_day, simulation_durat
                                         working_dir=wdir,
                                         start_year=int(report_start_day/365),
                                         end_year=int(simulation_duration/365)))
-    analyzers.append(EventReporterAnalyzer(sweep_variables=sweep_variables,
-                                          working_dir=wdir,
-                                          time_cutoff=int(report_start_day),
-                                          event_list=["Received_Treatment"],
-                                          output_filename="events"))
+    analyzers.append(AnnualPfPRAnalyzer(sweep_variables=sweep_variables,
+                                        working_dir=wdir,
+                                        start_year=int(report_start_day/365),
+                                        end_year=int(simulation_duration/365)))                                    
+    # analyzers.append(EventReporterAnalyzer(sweep_variables=sweep_variables,
+    #                                       working_dir=wdir,
+    #                                       time_cutoff=int(report_start_day),
+    #                                       event_list=["Received_Treatment"],
+    #                                       output_filename="events"))
     
     manager = AnalyzeManager(platform=platform,
                              configuration={},
