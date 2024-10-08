@@ -38,7 +38,9 @@
 
 6. edit **run_calib.py** with updated experiment name
 
-7. run **sbatch sbatch_run_calib.sh**  
+7. run **sbatch sbatch_run_calib.sh**
+
+8. run **calib_details.py** to generate additional plots *(optional)*
 
 ## Background
 
