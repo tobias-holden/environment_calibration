@@ -7,7 +7,9 @@
     * **simulation_coordinator.csv**
     * Related .csv files for *vectors* and *interventions*
       
-2. run create_files.py      
+2. run **create_files.py** to generate climate and demographics files.  
+
+    - If you already have files, just supply the path to them inside simulation_coordinator.csv 'demographics_filepath' column.      
 
 3. Define input parameter sampling space  
     * **test_parameter_key.csv**
