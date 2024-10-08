@@ -1,0 +1,677 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# configuration
+```{r}
+library(tidyverse)
+library(ggforce)
+
+exp <- "241007_test2"
+my_pal <- c("gray",
+            RColorBrewer::brewer.pal(8,"Paired"),
+            RColorBrewer::brewer.pal(8,'Dark2'),
+            RColorBrewer::brewer.pal(8,"Accent"),
+            RColorBrewer::brewer.pal(8,"Set1"),
+            RColorBrewer::brewer.pal(8,"Set2"),
+            RColorBrewer::brewer.pal(8,"Set3"),
+            RColorBrewer::brewer.pal(8,"Pastel1"),
+            RColorBrewer::brewer.pal(8,"Pastel2")
+            )
+
+pal_df <-data.frame(color=my_pal)
+pal_df$id <- 0:(nrow(pal_df)-1)
+
+pal_df %>%
+  mutate(group=ifelse(color=="gray",-1,trunc(id/8.01))) %>%
+  mutate(oid=id) %>%
+  group_by(group) %>%
+  mutate(id=rank(id)) %>%
+  ungroup() %>%
+  mutate(group=group+1) %>%
+  ggplot(aes(x=group,y=id)) +
+  geom_tile(aes(fill=color), color="white") +
+  geom_text(aes(label=oid)) +
+  scale_fill_identity() +
+  theme_void() +
+  scale_x_continuous(breaks = seq(0,20,1), minor_breaks = NULL)
+```
+
+# load data
+```{r}
+#scores <- read.csv(glue("{exp}/all_scores.csv")) %>% select(param_set,round,score)
+
+
+folders <- list.dirs(paste("./simulations/output",exp,sep='/'))
+folders <- folders[grepl(pattern = "LF",folders)]
+folders <- folders[!grepl(pattern="SO",folders)]
+
+for(f in 1:length(folders)){
+  round <- unlist(strsplit(folders[f],split="LF_"))[2]
+  if(f==1){
+    tp <- read.csv(paste(folders[f],"translated_params.csv",sep='/'))
+    tp$round <- round
+  } else {
+    tmp <- read.csv(paste(folders[f],"translated_params.csv",sep='/'))
+    tmp$round <- round
+    tp <- rbind.data.frame(tp,tmp)
+    remove(tmp)
+  }
+}
+
+batches <- tp %>% group_by(round) %>%
+  summarize(size=max(param_set)) %>%
+  ungroup() %>%
+  arrange(as.numeric(round)) %>%
+  mutate(size=cumsum(size))
+batches$round <- paste(as.numeric(batches$round)+1)
+
+scores <- read.csv(glue("simulations/output/{exp}/all_scores.csv"))
+
+scores %>% 
+  left_join(batches %>% mutate(round=as.integer(round))) %>%
+  rowwise() %>%
+  mutate(nps=param_set+ifelse(is.na(size),0,size)) %>%
+  mutate(param_set=nps) -> scores
+
+best_ps <- scores$param_set[which(scores$score==min(scores$score,na.rm=T))][1]
+
+scores %>% 
+  ungroup() %>%
+  filter(!duplicated(param_set)) %>%
+  select(param_set,score) %>%
+  arrange(param_set) %>%
+  mutate(better = cummin(score)) %>%
+  filter(score==better) -> imps
+
+imps$param_set -> imps
+
+```
+
+
+# plot
+
+```{r}
+
+tp %>% 
+  #filter(round==0)%>%
+  left_join(batches,by="round") %>%
+  rowwise() %>%
+  mutate(param_set=sum(param_set,size,na.rm=T)) %>%
+  mutate(unit_value=as.numeric(regmatches(unit_value, 
+                                        regexpr("-?[[:digit:]]+(\\.[[:digit:]]+)?",
+                                                unit_value)))) %>%
+  mutate(parameter=gsub("_"," ",parameter)) %>%
+  mutate(parameter=gsub("(\\S* \\S*) ","\\1\n",parameter)) -> transparam
+
+if(!exists("best_ps")){best_ps=1}  
+
+transparam %>%
+  mutate(emod_value=ifelse(!grepl(x = emod_value, "tensor"),
+               paste("tensor(",emod_value,",",sep=""),
+               emod_value)) %>%
+  mutate(ev=ifelse(transformation %in% c("log","none"),unlist(strsplit(emod_value,"\\("))[2],emod_value)) %>%
+  mutate(ev=unlist(strsplit(emod_value,","))[1]) %>%
+  mutate(ev=gsub("tensor\\(","",ev)) -> convergence
+
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`CONST Multiplier`, y=`Temperature Shift`)) +
+  stat_density2d(geom="polygon",
+    aes(group=round,
+        fill=factor(round)),
+    color="white") +
+  scale_fill_manual(values=my_pal)
+  
+
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`TEMPR Multiplier`, y=`Temperature Shift`))  +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14) +
+  theme(legend.position="none")-> p1
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`CONST Multiplier`, y=`Temperature Shift`))  +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14) +
+  theme(legend.position="none")-> p2
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`WATEV Multiplier`, y=`Temperature Shift`)) +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14) +
+  theme(legend.position="none")-> p3
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`CONST Multiplier`, y=`WATEV Multiplier`))  +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14) +
+  theme(legend.position="none")-> p4
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`CONST Multiplier`, y=`TEMPR Multiplier`))  +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14)+
+  theme(legend.position="none")-> p5
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  #filter(round %in% c(1,37)) %>%
+  select(round,param_set,parameter,unit_value) %>%
+  spread(key = parameter, value=unit_value) %>%
+  ggplot(aes(x=`TEMPR Multiplier`, y=`WATEV Multiplier`)) +
+  geom_point(aes(color=factor(round)))+
+  #geom_mark_ellipse(expand = 0, aes(fill=factor(round),
+  #                                  color=factor(round))) +
+  scale_color_manual(values=my_pal)+
+  scale_fill_manual(values=my_pal)+
+  theme_minimal(base_size=14) +
+  theme(legend.position="right")-> p6
+
+#### 
+p6
+
+library(patchwork)
+
+(p1 + p2 + p3) / (p4 + p5 + p6)
+
+```
+
+
+```{r}
+
+
+r2p <- seq(0,max(as.numeric(convergence$round)),1)
+
+for(r in 1:length(r2p))
+{
+
+  convergence %>%
+  filter(as.numeric(round) %in% r2p[1:r]) %>%
+  filter(as.numeric(round)==r2p[r]) %>%
+  mutate(ev=as.numeric(ev)) %>%
+  group_by(round,parameter) %>%
+  summarize(low=min(unit_value),
+            high=max(unit_value)) %>%
+  #filter(round==0) %>%
+  ungroup() %>%
+  pivot_wider(names_from=parameter,values_from = c(low,high)) %>%
+  arrange(as.numeric(round)) -> pp
+  
+  pp %>%
+  mutate(round=as.numeric(round)) %>%
+  arrange(round) %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1], 
+                xmin=`low_CONST Multiplier`, xmax=`high_CONST Multiplier`,
+                ymin=`low_Temperature Shift`,ymax=`high_Temperature Shift`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  xlab("Constant Multiplier") + ylab("Temperature Shift") -> pp1
+  
+  pp %>%
+  mutate(round=as.numeric(round)) %>%
+  arrange(round) %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1], 
+                xmin=`low_TEMPR Multiplier`, xmax=`high_TEMPR Multiplier`,
+                ymin=`low_Temperature Shift`,ymax=`high_Temperature Shift`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  xlab("Temporary Rainfall Multiplier") + ylab("Temperature Shift") -> pp2
+  
+  pp %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1], 
+                xmin=`low_WATEV Multiplier`, xmax=`high_WATEV Multiplier`,
+                ymin=`low_Temperature Shift`,ymax=`high_Temperature Shift`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  xlab("Water Vegetation Multiplier") + ylab("Temperature Shift") -> pp3
+  
+  pp %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1], 
+                xmin=`low_TEMPR Multiplier`, xmax=`high_TEMPR Multiplier`,
+                ymin=`low_CONST Multiplier`,ymax=`high_CONST Multiplier`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  xlab("Temporary Rainfall Multiplier") + ylab("Constant Multiplier") -> pp4
+  
+    pp %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1], 
+                ymin=`low_TEMPR Multiplier`, ymax=`high_TEMPR Multiplier`,
+                xmin=`low_WATEV Multiplier`,xmax=`high_WATEV Multiplier`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  ylab("Temporary Rainfall Multiplier") + xlab("Water Vegetation Multiplier") -> pp5
+    
+    pp %>%
+  ggplot() +
+  geom_rect(aes(group=factor(round), 
+                fill=my_pal[as.numeric(round)+1], 
+                color=my_pal[as.numeric(round)+1],   
+                xmin=`low_CONST Multiplier`, xmax=`high_CONST Multiplier`,
+                ymin=`low_WATEV Multiplier`,ymax=`high_WATEV Multiplier`),
+            alpha=1.0) +
+  scale_fill_identity() +
+  scale_color_identity() +
+  theme_minimal(base_size=16) +
+  theme(legend.position = "none",
+        panel.grid = element_blank()) +
+  coord_cartesian(xlim=c(0,1), ylim=c(0,1)) +
+  labs(color=NULL,fill=NULL) +
+  xlab("Constant Multiplier") + ylab("Water Vegetation Multiplier") -> pp6
+    
+    
+    patch <- (pp1 + pp2 + pp3) / (pp6 + pp4 + pp5)
+  
+    ggsave(glue("simulations/output/{exp}/parameters/trustregion/TR {r}.png"),patch,height=8,width=16)
+    ggsave(glue("simulations/output/{exp}/parameters/trustregion/TR {r}.pdf"),patch,height=8,width=16)
+}
+
+
+```  
+
+
+```{r}
+
+br <- sort(unique(as.numeric(convergence$round[convergence$param_set %in% imps])))
+#br <- br[length(br)]
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  arrange(round) %>%
+  filter(round  %in% c(0,1,br)) %>%
+  ggplot(aes(x=ifelse(transformation=="log",log10(as.numeric(ev)), as.numeric(ev)))) +
+  facet_wrap(~parameter,scales="free") +
+  geom_histogram(position="identity",
+               aes(group=round,color=my_pal[round+1],
+               fill=my_pal[round+1])) +
+  scale_color_identity() +
+  scale_fill_identity()
+
+convergence %>%
+  mutate(round = as.integer(round)) %>%
+  arrange(round) %>%
+  filter(round  %in% c(0,1,br)) %>%
+  ggplot(aes(x=ifelse(transformation=="log",log10(as.numeric(ev)), as.numeric(ev)))) +
+  facet_wrap(~ifelse(transformation=="log",
+                     paste("Log10",parameter),
+                     parameter),
+             scales="free", nrow=2) +
+  # stat_density(data = .%>% filter(round==max(br)), 
+  #              position="identity", alpha=0.75,
+  #              aes(group=round,color=my_pal[round+1],
+  #              fill=my_pal[round+1])) +
+  stat_density(position="identity", geom="line",
+               aes(group=round,color=factor(round)), linewidth=1) +
+  scale_color_manual(values=c(my_pal[1],my_pal[2],my_pal[br+1][-1])) +
+  scale_fill_identity() +
+  theme_minimal(base_size=16) +
+  ylab("Density") +
+  xlab("EMOD Parameter Value") +
+  theme(legend.position="top")
+
+ggsave(glue("simulations/output/{exp}/parameters/samples 0,1,best.png"),height=8,width=8)
+ggsave(glue("simulations/output/{exp}/parameters/samples 0,1,best.pdf"),height=8,width=8)
+
+
+```
+
+
+
+```{r}  
+
+####
+
+convergence %>%
+  group_by(round,parameter,transformation) %>% mutate(xmin=min(as.numeric(ev)),xmax=max(as.numeric(ev))) %>%
+  ungroup() %>%
+  ggplot(aes(x=factor(round))) +
+  facet_wrap(~parameter) +
+  geom_point(aes(y=ifelse(transformation=="log",
+                          log10(as.numeric(ev)), as.numeric(ev))),
+             alpha=0.2)+
+  geom_line(aes(y=ifelse(transformation=="log",
+                              log10(xmin),
+                              xmin), group=1)) +
+  geom_line(aes(y=ifelse(transformation=="log",
+                              log10(xmax),
+                              xmax), group=1)) +
+  scale_fill_manual(values=my_pal) +
+  theme_minimal(base_size=14)
+
+convergence %>%
+  ggplot(aes(x=factor(round))) +
+  theme_minimal(base_size=14) +
+  facet_wrap(~ifelse(transformation=="log",
+                     paste("Log10",parameter),
+                     parameter),
+             scales="free_y") +
+  geom_boxplot(aes(y=ifelse(transformation=="log",
+                            log10(as.numeric(ev)),
+                            as.numeric(ev)))) +
+  ylab("EMOD parameter value") +
+  xlab("Batch #")
+
+
+
+```
+
+```{r}
+for(r in sort(unique(as.numeric(convergence$round)))){
+  print(r)
+  convergence %>% filter(as.numeric(round) <= r) %>%
+  ggplot(aes(x=param_set,y=ifelse(transformation=="log",log10(as.numeric(ev)),as.numeric(ev)),
+             color=factor(ifelse(round>0,paste("TuRBO",round),"Initialization"),
+                          levels=c("Initialization",paste("TuRBO",sort(as.numeric(unique(convergence$round)))))))) +  
+  facet_wrap(~parameter,scales="free_y",ncol=1)   +
+  geom_point(alpha=0.4) +
+  #scale_x_continuous(limits=c(0,1)) +
+  theme_minimal(base_size = 8) +  
+  labs(color=NULL,linetype=NULL) +
+  scale_color_manual(values=my_pal) +
+  guides(color=guide_legend(override.aes = list(alpha=1),ncol=2,byrow=T)) +
+  theme(legend.position="right", legend.box.margin = margin(0,0,0,0),
+        legend.spacing = unit(0.01,"cm"), legend.text = element_text(size=4),
+        legend.key.size = unit(0, 'lines')) +
+
+  coord_cartesian(xlim=c(0,5000))+
+  # geom_hline(data=convergence %>% filter(bp), 
+  #            aes(yintercept=ifelse(transformation=="log",
+  #                                  log10(as.numeric(ev)),
+  #                                  as.numeric(ev)),
+  #                linetype="Best"),color="red") +
+  xlab("Parameter Set, i") +
+  ylab(expression("EMOD Parameter Value "~X[i]^'*')) +
+  scale_linetype_manual(values=c(1,2)) -> plot
+  if(exists("imps")){
+    plot <- plot + geom_step(data = convergence %>% filter(param_set %in% imps) %>% filter(as.numeric(round) <= r),
+            aes(linetype="Improvement"),
+            color="black") 
+  }
+  ggsave(glue("simulations/output/{exp}/parameters/X*_vs_i by round {r}.png"), plot, height=5,width=5)
+  ggsave(glue("simulations/output/{exp}/parameters/X*_vs_i by round {r}.pdf"), plot, useDingbats=FALSE,height=5,width=5)
+}
+```
+
+
+
+```{r}
+
+convergence %>%
+  ggplot(aes(x=param_set,y=ifelse(transformation=="log",log10(as.numeric(ev)),as.numeric(ev)),
+             color=factor(ifelse(round>0,paste("TuRBO",round),"Initialization"),levels=c("Initialization",paste("TuRBO",sort(as.numeric(unique(convergence$round))))))))+  
+  facet_wrap(~parameter,scales="free_y",ncol=1)   +
+  geom_point(alpha=0.4) +
+  #scale_x_continuous(limits=c(0,1)) +
+  theme_minimal(base_size = 8) +
+  labs(color=NULL,linetype=NULL) +
+  scale_color_manual(values=my_pal) +
+  guides(color=guide_legend(override.aes = list(alpha=1),ncol=2,byrow=T)) +
+  theme(legend.position="right", legend.box.margin = margin(0,0,0,0),
+        legend.spacing = unit(0.01, 'cm') ) +
+  coord_cartesian(xlim=c(0,5000)) +
+  
+  # geom_hline(data=convergence %>% filter(bp), 
+  #            aes(yintercept=ifelse(transformation=="log",
+  #                                  log10(as.numeric(ev)),
+  #                                  as.numeric(ev)),
+  #                linetype="Best"),color="red") +
+  xlab("Parameter Set, i") +
+  ylab(expression("EMOD Parameter Value "~X[i]^'*')) -> xp
+
+if(exists("imps")){
+  xp <- xp +   
+    geom_point(data = convergence %>% filter(param_set %in% imps),color="black")+
+    geom_step(data = convergence %>% filter(param_set %in% imps),
+            aes(linetype="Improvement"),
+            color="black")   +
+    scale_linetype_manual(values=c(2))
+}
+
+ggsave(glue("simulations/output/{exp}/parameters/X*_vs_i by round.png"),xp, height=5,width=5)
+ggsave(glue("simulations/output/{exp}/parameters/X*_vs_i by round.pdf"),xp, useDingbats=FALSE,height=5,width=5)
+
+convergence %>% select(param_set,parameter,unit_value,ev,round) %>%
+  left_join(scores %>% select(param_set, score)) %>%
+  ggplot(aes(x=unit_value,y=log10(score), color=factor(ifelse(round>0,paste("TuRBO",round),
+                                                       "Initialization"),
+                                                       levels=c("Initialization",paste("TuRBO",sort(as.numeric(unique(convergence$round)))))))) +
+  geom_point(alpha=0.5, aes(size=param_set==best_ps)) +
+  theme_minimal(base_size=8) +
+  facet_wrap(~parameter) +
+  labs(color=NULL) +
+  scale_color_manual(values=my_pal) +
+  guides(color=guide_legend(nrow=2, override.aes = list(size=3,alpha=1)),
+         size="none") +
+  theme(legend.position="top") 
+
+ggsave(glue("simulations/output/{exp}/scoring/X_vs_Y by round.png"),height=8,width=8)
+ggsave(glue("simulations/output/{exp}/scoring/X_vs_Y by round.pdf"), useDingbats=FALSE,height=8,width=8)
+
+convergence %>% select(param_set,parameter,unit_value,ev,round,transformation) %>%
+  left_join(scores %>% select(param_set, score)) %>%
+  ggplot(aes(x=ifelse(transformation=="log",
+                      log10(as.numeric(ev)), 
+                      as.numeric(ev)),
+             y=log10(score), 
+             color=factor(ifelse(round>0,
+                          paste("TuRBO",round),
+                          "Initialization"),
+                          levels=c("Initialization",paste("TuRBO",sort(as.numeric(unique(convergence$round)))))))) +
+  geom_point(alpha=0.5, aes(size=param_set==best_ps)) +
+  theme_minimal(base_size=16) +
+  facet_wrap(~ifelse(transformation=="log",paste("Log10",parameter),parameter),scales="free_x", nrow=1) +
+  labs(color=NULL) + xlab("EMOD Parameter Value") +
+  scale_color_manual(values=my_pal) +
+  guides(color=guide_legend(nrow=2, override.aes = list(size=3,alpha=1)),
+         size="none") +
+  theme(legend.position="top") 
+
+ggsave(glue("simulations/output/{exp}/scoring/X*_vs_Y by round.png"),height=4,width=18)
+ggsave(glue("simulations/output/{exp}/scoring/X*_vs_Y by round.pdf"), useDingbats=FALSE,height=4,width=16)
+
+## Overall
+
+scores %>%
+  select(param_set,round,score) %>%
+  mutate(dup=duplicated(param_set)) %>%
+  arrange(dup) %>%
+  filter(!dup) %>%
+  filter(!is.na(score)) -> score_df
+
+score_df %>%
+  ungroup() %>%
+  arrange(param_set) %>%
+  mutate(best=cummin(score)) %>%
+  filter(!duplicated(best))-> trace_best
+
+score_df %>% 
+  ggplot(aes(x=param_set, y=log10(score))) + 
+  geom_step(data=trace_best,aes(color="improvement",linetype="improvement"))+
+  geom_point(alpha=0.4) +
+  theme_minimal(base_size=8) +
+  labs(color=NULL,linetype=NULL)+
+  theme(legend.position="top",
+        legend.box.margin = margin(-10,-10,-20,-10)) +
+  scale_linetype_manual(values=c(2))+
+  scale_color_manual(values=c("red")) +
+  guides(color=guide_legend(override.aes = list(alpha=1),nrow=2,byrow=F))
+
+ggsave(glue("simulations/output/{exp}/scoring/Y_vs_i.pdf"), useDingbats=FALSE,height=4,width=10)
+ggsave(glue("simulations/output/{exp}/scoring/Y_vs_i.png"),height=4,width=10)
+
+```
+
+
+```{r}
+
+scores %>% select(score,param_set,round) %>% 
+  left_join(convergence %>% mutate(round=as.integer(round)) %>% 
+              select(parameter,param_set,round,unit_value,ev)) %>%
+  group_by(parameter) %>%
+  mutate(rank=rank(score, ties.method = "first")) %>% 
+  ggplot(aes(x=rank, y=unit_value)) +
+  facet_wrap(~parameter) +
+  geom_point(alpha=0.1) +
+  theme_minimal(base_size=14)
+
+```
+
+
+```{r,eval=F}
+inc_ref_filename <- "routine_seb_agg_confpres.csv"
+inc_ref_age <- "ov5"
+inc_ref_DS <- "Nanoro" 
+inc_ref <- read.csv(glue('reference_datasets/{inc_ref_filename}')) %>% filter(DS_Name == inc_ref_DS & age==inc_ref_age)
+
+sim_inc_age <- 5
+
+# Clean up dates to separate month and year
+inc_ref %>%
+  mutate(Date=as.Date(Date)) %>%
+  mutate(year=format.Date(Date,format='%Y'),
+         month=format.Date(Date,format="%m")) -> inc_ref
+# Normalize incidence shape within each year
+ inc_ref %>% 
+   group_by(year) %>%
+   mutate(max_cases = max(case)) %>%
+   ungroup() %>%
+   mutate(normalized_cases = case/max_cases) -> inc_ref
+ 
+ ggplot(inc_ref, aes(x=month,y=normalized_cases)) +
+   geom_line(aes(group=year,color="reference"),
+             alpha=0.3) -> inc_plot
+ 
+ inc_ref %>%
+   group_by(DS_Name,age,month) %>%
+   summarize(normalized_cases=mean(normalized_cases)) -> inc_ref
+# Summarize monthly average normalized incidence across years
+  inc_plot <- inc_plot + 
+    geom_line(data=inc_ref,linewidth=1.5,
+              aes(group=1,color="reference")) +
+    theme_minimal(base_size=14)
+
+
+best_round<-unlist(scores[order(scores$score)[1],"round"],use.names = F)
+best_ps <- read.csv(glue("simulations/output/{exp}/LF_{best_round}/emod.best.csv"))
+best_ps <- best_ps$param_set[1] 
+
+inc_sim <- read.csv(glue("simulations/output/{exp}/LF_{best_round}/SO/{inc_ref_DS}/PfPR_ClinicalIncidence_monthly.csv"))
+inc_sim %>% filter(agebin==sim_inc_age) %>% filter(Sample_ID==best_ps) -> inc_sim
+  
+
+# Normalize incidence shape within each year
+inc_sim %>% 
+   group_by(Year) %>%
+   mutate(max_cases = max(Cases)) %>%
+   ungroup() %>%
+   mutate(normalized_cases = Cases/max_cases) -> inc_sim
+ 
+ inc_plot <- inc_plot + 
+   geom_line(data=inc_sim,
+             aes(group=Year,x=month,y=normalized_cases,color="simulation"),
+             alpha=0.3) 
+ 
+ inc_sim %>%
+   group_by(agebin,month) %>%
+   summarize(normalized_cases=mean(normalized_cases)) -> inc_sim
+# Summarize monthly average normalized incidence across years
+  inc_plot + 
+    geom_line(data=inc_sim,linewidth=1.5,
+              aes(group=1,color="simulation")) +
+    theme_minimal(base_size=14) +
+    xlab("Month") + ylab("Normalized Case Counts (Age 5+)") +
+    labs(color=NULL) +
+    ggtitle(glue("batch {best_round}, parameter set {best_ps}")) +
+    scale_color_manual(values=c("black","red"))
+```
