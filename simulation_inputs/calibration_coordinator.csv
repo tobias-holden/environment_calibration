@@ -1,4 +1,4 @@
-site,init_size,batch_size,max_eval,failure_limit
-Nanoro,1000,100,5000,4
-Sapone,100,250,5000,1
-Sapone2,100,250,2000,1
+site,init_size,init_batches,batch_size,max_eval,failure_limit
+Nanoro,10,1,10,50,2
+Sapone,100,1,100,500,1
+Sapone2,100,1,250,2000,1
