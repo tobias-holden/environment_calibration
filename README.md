@@ -49,7 +49,7 @@ Status Summary
 |:-:|:-|:-|
 |Interventions|treatment-seeking, non-malaria fever treatment,<br>SMC, bednets (season- and age-dependent)|IRS, Campaigns (MSAT/MDA)|
 |Vectors|*arabiensis*, *gambiae*, *funestus*||
-|Habitats|constant, temporary rainfall, water vegetation|brackish swamp, population-dependent|
+|Habitats|constant, temporary rainfall, water vegetation|linear spline|
 
 
 ## Methods
