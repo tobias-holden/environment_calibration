@@ -62,14 +62,14 @@ def set_species_from_file(config, vector_file):
 
 def set_param_fn(config):
     config = conf.set_team_defaults(config, manifest)
-
+    
     set_species_from_file(config, vector_file = "vectors.csv")
    
     
     config.parameters.Simulation_Duration = 70 * 365 + 1
     config.parameters.x_Temporary_Larval_Habitat = 1
     config.parameters.Age_Initialization_Distribution_Type = "DISTRIBUTION_COMPLEX"
-    
+    config.parameters.Climate_Model = "CLIMATE_BY_DATA"
     config.parameters.Air_Temperature_Filename = os.path.join(
         "climate", "air_temperature_daily.bin"
     )
@@ -109,30 +109,41 @@ def add_outputs(task, site):
     last_year = int(simulation_duration / 365)
     first_year = int(report_start / 365)
     sim_start_year = 0 #This may be useful to change? I don't know the input data
-    for year in range(first_year, last_year):
-        start_day = 0 + 365 * year
-        sim_year = sim_start_year + year
+    if(coord_df.at[site,'include_MonthlyMalariaSummaryReport']):
+        for year in range(first_year, last_year):
+            start_day = 0 + 365 * year
+            sim_year = sim_start_year + year
+            add_malaria_summary_report(
+                task,
+                manifest,
+                start_day=start_day,
+                end_day=365 + year * 365,
+                reporting_interval=30,
+                age_bins=[0.25, 5, 115],
+                max_number_reports=13,
+                pretty_format=True,
+                filename_suffix=f"Monthly{sim_year}")
+    if(coord_df.at[site,'include_AnnualMalariaSummaryReport']):
         add_malaria_summary_report(
-            task,
-            manifest,
-            start_day=start_day,
-            end_day=365 + year * 365,
-            reporting_interval=30,
-            age_bins=[0.25, 5, 115],
-            max_number_reports=13,
-            pretty_format=True,
-            filename_suffix=f"Monthly{sim_year}",
-        )
+                task,
+                manifest,
+                start_day=first_year*365,
+                end_day=last_year * 365,
+                reporting_interval=365,
+                age_bins=[0.25, 5, 115],
+                max_number_reports=last_year-first_year+1,
+                pretty_format=True,
+                filename_suffix=f"Yearly{first_year}-{last_year}")
 
     # add_vector_habitat_report(task, manifest)
-    add_event_recorder(
-        task,
-        event_list=["Received_Treatment"],
-        start_day=int(report_start),
-        end_day=int(simulation_duration),
-        min_age_years=0,
-        max_age_years=50
-    )
+    # add_event_recorder(
+    #     task,
+    #     event_list=["Received_Treatment"],
+    #     start_day=int(report_start),
+    #     end_day=int(simulation_duration),
+    #     min_age_years=0,
+    #     max_age_years=50
+    # )
 
     # add_report_node_demographics(task, manifest,
     #                              age_bins = [0.25,5,50],
@@ -468,9 +479,12 @@ def get_comps_id_filename(site: str, level: int = 0):
 def add_calib_param_func(simulation, calib_params, sets, hab_base = 1e8, const_base = 1e6):
     X = calib_params[calib_params['param_set'] == sets]
     X = X.reset_index(drop=True)
-    #Temperature Shift    
-    simulation.task.config.parameters.Air_Temperature_Offset = float(X['emod_value'][0])      # hard-coded, assumed parameter locations
-    simulation.task.config.parameters.Land_Temperature_Offset = float(X['emod_value'][0])
+    # Temperature Shift: Ensure climate model is enabled before setting temperature offsets
+    if simulation.task.config.parameters.Climate_Model == "CLIMATE_BY_DATA":
+        simulation.task.config.parameters.Air_Temperature_Offset = float(X['emod_value'][0])
+        simulation.task.config.parameters.Land_Temperature_Offset = float(X['emod_value'][0])
+    else:
+        warnings.warn("Climate model is not enabled; skipping temperature offsets.")
     #Vectors
     coord_df = load_coordinator_df(characteristic=False, set_index=True)
     vdf = pd.read_csv(os.path.join(manifest.input_files_path,coord_df['vector_filepath'].iloc[0]))
