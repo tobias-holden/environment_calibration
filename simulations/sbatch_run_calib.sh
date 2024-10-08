@@ -4,14 +4,13 @@
 #SBATCH -t 12:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
 #SBATCH --mem=8G
 #SBATCH --job-name="calibration"
 #SBATCH --error=/projects/b1139/environmental_calibration/simulations/logs/calibration.%j.err
 #SBATCH --output=/projects/b1139/environmental_calibration/simulations/logs/calibration.%j.out
 
 module purge all
-source /projects/b1139/environments/pytorch-1.11-emodpy-py39/bin/activate
+source activate /projects/b1139/environments/emodpy-torch
 
 cd /projects/b1139/environmental_calibration/simulations
 
