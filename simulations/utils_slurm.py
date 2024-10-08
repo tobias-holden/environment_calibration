@@ -146,7 +146,7 @@ def submit_scheduled_analyzer(experiment, platform, site, analyzer_script, mem=2
     ## Write bash file to submit
     header_post = shell_header_quest(job_name=f'analyze_exp', t='06:00:00', mem=mem, c='8')
     pymodule = '\n\nmodule purge all' \
-               '\nsource /projects/b1139/environments/pytorch-1.11-emodpy-py39/bin/activate\n'
+               '\nsource activate /projects/b1139/environments/emodpy-torch\n'
     ### pycommand(s) - additional python or R scripts to directly run after analyzer can be added below
     pycommand = f'\ncd {wdir}' \
                 f'\npython {analyzer_script} --site {site} --expid {experiment.id}' 
@@ -167,14 +167,27 @@ def submit_scheduled_analyzer(experiment, platform, site, analyzer_script, mem=2
     file.write(header_post_wait + pymodule + batchcommand)
     file.close()
     
-    ## get job_id
     job_id = platform._op_client.get_job_id(experiment.id, experiment.item_type)
-    
+    job_id = job_id[0]
     script_path = os.path.join(wdir,f'wait_analyzer_{experiment.uid}.sh') #,'analyzers','batch' # save under different names, will require cleanup
+    print(script_path)
     result = subprocess.run([f'sbatch --dependency=afterok:{job_id} {script_path}'], shell=True, stdout=subprocess.PIPE)
+    print(result,flush=True)
     result = result.stdout.decode('utf-8').strip()
+    print(result,flush=True)
     SBATCH_REGEX = re.compile('^[a-zA-Z ]+(?P<id>\d+)$')
+    # print(SBATCH_REGEX.match(result),flush=True)
     job_id_analyzer = SBATCH_REGEX.match(result).group('id')
+    #Regular expression to match the job ID
+    regex = r'Submitted batch job (\d+)'
+    # Using re.search to find the match
+    match = re.search(regex, result)
+    if match:
+        job_id = match.group(1)
+        print(job_id)  
+    else:
+        print("Problem with scheduled analyzer job id")
+        exit(1)
 
     print(f"Experiment job id: {job_id}")
     print(f"Analyzer job id: {job_id_analyzer}")
