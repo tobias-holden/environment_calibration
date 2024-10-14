@@ -14,12 +14,13 @@ from my_func import my_func as myFunc
 from compare_to_data.run_full_comparison import plot_prevalence,plot_incidence,compute_scores_across_site,save_maxEIR,save_AnnualIncidence 
 from clean_all import clean_analyzers 
 from translate_parameters import translate_parameters
+from calib_details import *
 
 import manifest as manifest
 
 # Experiment details
-Site="Nanoro"
-exp_label = "241007_test2"
+Site="Dummy"
+exp_label = "241008_perennial"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -111,6 +112,7 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
+            clean_analyzers()
             
         else:
             os.makedirs(os.path.join(f"{self.workdir}/LF_{self.n}"),exist_ok=True)
@@ -136,6 +138,7 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
+            clean_analyzers()
             
         return torch.tensor(xc,dtype=torch.float64), torch.tensor(yc)
 
@@ -178,17 +181,23 @@ x=param_key
 parameter_labels=param_key['parameter_label'].to_list()
 
 # Plot
-plot_runtimes(bo),
-plt.savefig(f'output/{exp_label}/runtime', bbox_inches="tight")
-plot_MSE(bo,n_init=1)
-plt.savefig(f'output/{exp_label}/mse', bbox_inches="tight")
-plot_convergence(bo, negate=True, ymin=-100, ymax=0)
-plt.savefig(f'output/{exp_label}/convergence', bbox_inches="tight")
-plot_prediction_error(bo)
-plt.savefig(f'output/{exp_label}/pred_error', bbox_inches="tight")
-plot_X_flat(bo, param_key = param_key, labels=parameter_labels)
-plt.savefig(f'output/{exp_label}/x_flat', bbox_inches="tight")
-##plot_space(bo, -5**2, 0, labels="X")
-##plt.savefig('output/{exp_label}/space', bbox_inches="tight")
-##plot_y_vs_posterior_mean(bo,n_init=1)
-##plt.savefig('output/{exp_label}/posterior_mean', bbox_inches="tight")
+plot_calibration_predictions(experiment=exp_label,exclude_count=0)
+plot_calibration_lengthscales(experiment=exp_label)
+plot_calibration_timing(experiment=exp_label)
+
+# plot_runtimes(bo),
+# plt.savefig(f'output/{exp_label}/runtime', bbox_inches="tight")
+# plot_MSE(bo,n_init=1)
+# plt.savefig(f'output/{exp_label}/mse', bbox_inches="tight")
+# plot_convergence(bo, negate=True, ymin=-100, ymax=0)
+# plt.savefig(f'output/{exp_label}/convergence', bbox_inches="tight")
+# plot_prediction_error(bo)
+# plt.savefig(f'output/{exp_label}/pred_error', bbox_inches="tight")
+# plot_X_flat(bo, param_key = param_key, labels=parameter_labels)
+# plt.savefig(f'output/{exp_label}/x_flat', bbox_inches="tight")
+# ##plot_space(bo, -5**2, 0, labels="X")
+# ##plt.savefig('output/{exp_label}/space', bbox_inches="tight")
+# ##plot_y_vs_posterior_mean(bo,n_init=1)
+# ##plt.savefig('output/{exp_label}/posterior_mean', bbox_inches="tight")
+
+
