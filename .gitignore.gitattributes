@@ -1,0 +1,23 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+
+#log files
+*.err
+*.out
+
+# Batch submission scripts
+
+wait_*.sh
+run_*.sh
+
+# Reference data (avoid overwrite)
+reference_datasets/
+
+# simulation_inputs
+simulation_inputs/
+
+# simulation_outputs
+simulation_outputs/
+
+# experiments
+experiments/
