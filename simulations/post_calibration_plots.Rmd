@@ -1,0 +1,168 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+# configuration
+
+```{r}
+library(tidyverse)
+library(ggforce)
+library(patchwork)
+library(glue)
+
+# Experiment name
+exp <- "241013_20_max_infections"
+# Number of training batches
+training_batches <- 5
+# Batch size
+batch_size <- 200
+# Create folders to store post-calibration plots
+performance_folder<-paste("output",exp,"performance",sep='/')
+if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
+score_folder<-paste("output",exp,"performance/scores",sep='/')
+if(!(dir.exists(score_folder))){dir.create(score_folder)}
+parameters_folder<-paste("output",exp,"performance/parameters",sep='/')
+if(!(dir.exists(parameters_folder))){dir.create(parameters_folder)}
+#GP_folder<-paste("output",exp,"performance/GP",sep='/')
+#if(!(dir.exists(GP_folder))){dir.create(GP_folder)}
+objectives_folder<-paste("output",exp,"objectives",sep='/')
+if(!(dir.exists(objectives_folder))){dir.create(objectives_folder)}
+
+my_pal <- c("gray",
+            RColorBrewer::brewer.pal(8,"Paired"),
+            RColorBrewer::brewer.pal(8,'Dark2'),
+            RColorBrewer::brewer.pal(8,"Accent"),
+            RColorBrewer::brewer.pal(8,"Set1"),
+            RColorBrewer::brewer.pal(8,"Set2"),
+            RColorBrewer::brewer.pal(8,"Set3"),
+            RColorBrewer::brewer.pal(8,"Pastel1"),
+            RColorBrewer::brewer.pal(8,"Pastel2")
+            )
+
+pal_df <-data.frame(color=my_pal)
+pal_df$id <- 0:(nrow(pal_df)-1)
+
+## View color palette
+#pal_df %>%
+#  mutate(group=ifelse(color=="gray",-1,trunc(id/8.01))) %>%
+#  mutate(oid=id) %>%
+#  group_by(group) %>%
+#  mutate(id=rank(id)) %>%
+#  ungroup() %>%
+#  mutate(group=group+1) %>%
+#  ggplot(aes(x=group,y=id)) +
+#  geom_tile(aes(fill=color), color="white") +
+#  geom_text(aes(label=oid)) +
+#  scale_fill_identity() +
+#  theme_void() +
+#  scale_x_continuous(breaks = seq(0,20,1), minor_breaks = NULL)
+```
+
+# load data
+```{r}
+
+folders <- list.dirs(paste("./output",exp,sep='/'))
+folders <- folders[grepl(pattern = "LF",folders)]
+folders <- folders[!grepl(pattern="SO",folders)]
+
+for(f in 1:length(folders)){
+  round <- unlist(strsplit(folders[f],split="LF_"))[2]
+  if(f==1){
+    tp <- read.csv(paste(folders[f],"translated_params.csv",sep='/'))
+    tp$round <- round
+  } else {
+    tmp <- read.csv(paste(folders[f],"translated_params.csv",sep='/'))
+    tmp$round <- round
+    tp <- rbind.data.frame(tp,tmp)
+    remove(tmp)
+  }
+}
+
+batches <- tp %>% group_by(round) %>%
+  summarize(size=max(param_set)) %>%
+  ungroup() %>%
+  arrange(as.numeric(round)) %>%
+  mutate(size=cumsum(size))
+batches$round <- paste(as.numeric(batches$round)+1)
+
+scores <- read.csv(glue("simulations/output/{exp}/all_scores.csv"))
+scores <- scores[,colnames(scores)[which(!grepl("Unnamed",colnames(scores)))]]
+
+scores %>% 
+  left_join(batches %>% mutate(round=as.integer(round))) %>%
+  rowwise() %>%
+  mutate(nps=param_set+ifelse(is.na(size),0,size)) %>%
+  mutate(old_param_set=param_set,param_set=nps) -> scores
+
+scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> scores
+
+
+scores %>% 
+  ungroup() %>%
+  filter(!duplicated(param_set)) %>%
+  select(param_set,score) %>%
+  arrange(param_set) %>%
+  mutate(better = cummin(score)) %>%
+  filter(score==better) -> imps
+
+imps$param_set -> imps
+
+```
+
+
+```{r}
+### Plot score convergence
+
+scores %>%
+  filter(eir_score==0) %>%
+  ggplot(aes(x=param_set,y=score)) +
+  geom_point() + 
+  geom_point(data=.%>%filter(score==min(scores$score)),
+             aes(color="best")) +
+  theme_minimal(base_size=16) +
+  labs(color=NULL) +
+  xlab("Parameter Set #") + ylab("Total Score")
+ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),height = 8,width=8)
+
+scores %>%
+  select(param_set,shape_score,intensity_score,prevalence_score,eir_score,score) %>%
+  gather("score_type","value",-c("param_set")) %>%
+  ggplot(aes(x=param_set,y=value)) +
+  geom_point() +
+  geom_point(data=.%>%filter(param_set==scores$param_set[scores$score==min(scores$score)]),
+             aes(color="best")) +
+  facet_wrap(~score_type,scales="free_y") +
+  theme_minimal(base_size=16) +
+  labs(color=NULL) +
+  xlab("Parameter Set #") + ylab("Score")
+ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
+
+# Plot parameter convergence
+
+tp %>%
+  mutate(emod_value=gsub("\\)","",gsub("tensor\\(","",emod_value))) %>%
+  mutate(emod_value=as.numeric(emod_value)) %>%
+  mutate(emod_value=ifelse(transformation=="log",log10(emod_value),emod_value)) %>%
+  ggplot(aes(x=param_set+batch_size*as.numeric(round),y=emod_value)) +
+  facet_wrap(~ifelse(transformation=="log",paste("Log",parameter),parameter)) +
+  geom_point()+
+  theme_minimal(base_size=16) +
+  labs(color=NULL) +
+  xlab("Parameter Set #") + ylab("EMOD Parameter Value")
+ggsave(paste(parameters_folder,paste("emod_parameters.png",sep="_"),sep='/'),height = 8,width=8)
+
+tp %>%
+  mutate(unit_value=gsub("\\)","",gsub("tensor\\(","",unit_value))) %>%
+  mutate(unit_value=as.numeric(unit_value)) %>%
+  ggplot(aes(x=param_set+batch_size*as.numeric(round),y=unit_value)) +
+  facet_wrap(~parameter) +
+  geom_point()+
+  theme_minimal(base_size=16) +
+  labs(color=NULL) +
+  xlab("Parameter Set #") + ylab("Unit Parameter Value")
+ggsave(paste(parameters_folder,paste("unit_parameters.png",sep="_"),sep='/'),height = 8,width=8)
+
+```
+
