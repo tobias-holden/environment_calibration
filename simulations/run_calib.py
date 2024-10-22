@@ -6,15 +6,14 @@ import pandas as pd
 import numpy as np
 from gpytorch.constraints import GreaterThan
 sys.path.append("../")
-from batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
-from emulators.GP import ExactGP   
-from bo import BO 
-from plot import * 
+from calibration_common.batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
+from calibration_common.emulators.GP import ExactGP   
+from calibration_common.bo import BO 
+from calibration_common.plot import * 
 from my_func import my_func as myFunc 
 from compare_to_data.run_full_comparison import plot_prevalence,plot_incidence,compute_scores_across_site,save_maxEIR,save_AnnualIncidence 
-from clean_all import clean_analyzers 
+from clean_all import clean_analyzers, clean_logs
 from translate_parameters import translate_parameters
-from calib_details import *
 
 import manifest as manifest
 
@@ -113,6 +112,7 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
+	    clean_logs()
             
         else:
             os.makedirs(os.path.join(f"{self.workdir}/LF_{self.n}"),exist_ok=True)
@@ -139,7 +139,7 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            
+	    clean_logs()            
         return torch.tensor(xc,dtype=torch.float64), torch.tensor(yc)
 
 
@@ -154,17 +154,14 @@ problem = Problem(workdir=f"output/{exp_label}")
 
 # at beginning of workflow, cleanup all sbatch scripts for analysis
 clean_analyzers()
-
+clean_logs()
 # Create the GP model
 # See emulators/GP.py for a list of GP models
 # Or add your own, see: https://botorch.org/docs/models
 model = ExactGP(noise_constraint=GreaterThan(1e-6))
 
 # Create batch generator(s)
-#batch_size 64 when running in production
 tts = TurboThompsonSampling(batch_size=emulator_batch_size, failure_tolerance=failure_limit, dim=problem.dim) #64
-#ei = ExpectedImprovement(batch_size=50, num_restarts=20, raw_samples=1024, dim=problem.dim)
-batch_generator = tts #BatchGeneratorArray([tts, ei])
 
 # Create the workflow
 bo = BO(problem=problem, model=model, batch_generator=batch_generator, checkpointdir=output_dir, max_evaluations=gp_max_eval)
@@ -176,28 +173,5 @@ bo.initRandom(init_samples, n_batches = init_batches)
 
 # Run the optimization loop
 bo.run(exp_label=f"{exp_label}")
-
-x=param_key
-parameter_labels=param_key['parameter_label'].to_list()
-
-# Plot
-plot_calibration_predictions(experiment=exp_label,exclude_count=0)
-plot_calibration_lengthscales(experiment=exp_label)
-plot_calibration_timing(experiment=exp_label)
-
-# plot_runtimes(bo),
-# plt.savefig(f'output/{exp_label}/runtime', bbox_inches="tight")
-# plot_MSE(bo,n_init=1)
-# plt.savefig(f'output/{exp_label}/mse', bbox_inches="tight")
-# plot_convergence(bo, negate=True, ymin=-100, ymax=0)
-# plt.savefig(f'output/{exp_label}/convergence', bbox_inches="tight")
-# plot_prediction_error(bo)
-# plt.savefig(f'output/{exp_label}/pred_error', bbox_inches="tight")
-# plot_X_flat(bo, param_key = param_key, labels=parameter_labels)
-# plt.savefig(f'output/{exp_label}/x_flat', bbox_inches="tight")
-# ##plot_space(bo, -5**2, 0, labels="X")
-# ##plt.savefig('output/{exp_label}/space', bbox_inches="tight")
-# ##plot_y_vs_posterior_mean(bo,n_init=1)
-# ##plt.savefig('output/{exp_label}/posterior_mean', bbox_inches="tight")
 
 
