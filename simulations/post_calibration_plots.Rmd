@@ -14,10 +14,11 @@ library(glue)
 
 # Experiment name
 exp <- "test_prod_no_interventions"
+coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
-training_batches <- 5
+training_batches <- coord_df$init_batches
 # Batch size
-batch_size <- 200
+batch_size <- coord_df$batch_size
 # Create folders to store post-calibration plots
 performance_folder<-paste("output",exp,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
@@ -126,12 +127,18 @@ imps$param_set -> imps
 ### Plot score convergence
 scores %>%
   #filter(eir_score==0) %>%
-  ggplot(aes(x=param_set,y=score)) +
-  geom_point(aes(shape=(param_set==best_param_set))) + 
+  ggplot(aes(x=param_set,y=log10(score))) +
+  geom_point(data=.%>%filter(!(param_set %in% imps)))  +
+  geom_point(data=.%>%filter(param_set %in% imps),
+             aes(color="improvement",
+                 shape=param_set==best$param_set),
+             fill="white") +
   # geom_point(data=.%>%filter(score==min(scores$score,na.rm=T)),
   #            aes(shape="best")) +
   theme_minimal(base_size=16) +
-  labs(color=NULL) +
+  labs(color=NULL,shape=NULL) +
+  guides(shape="none")+
+  scale_shape_manual(values=c(19,1))+
   xlab("Parameter Set #") + ylab("Total Score")
 ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),height = 8,width=8)
 
@@ -139,12 +146,16 @@ scores %>%
   select(param_set,shape_score,intensity_score,prevalence_score,eir_score) %>%
   gather("score_type","value",-c("param_set")) %>%
   ggplot(aes(x=param_set,y=value)) +
-  geom_point() +
-  geom_point(data=.%>%filter(param_set==scores$param_set[scores$score==min(scores$score,na.rm=T)]),
-             aes(color="best")) +
+  geom_point(data=.%>%filter(!(param_set %in% imps)))  +
+  geom_point(data=.%>%filter(param_set %in% imps),
+             aes(color="improvement",
+                 shape=param_set==best$param_set),
+             fill="white") +
   facet_wrap(~score_type,scales="free_y") +
   theme_minimal(base_size=16) +
-  labs(color=NULL) +
+  labs(color=NULL,shape=NULL) +
+  guides(shape="none")+
+  scale_shape_manual(values=c(19,1))+
   xlab("Parameter Set #") + ylab("Score")
 ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
 
