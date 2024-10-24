@@ -1,2 +1,2 @@
 site,init_size,init_batches,batch_size,max_eval,failure_limit,success_limit
-Nanoro,10,1,10,50,2,8
+Nanoro,100,1,100,500,4,8

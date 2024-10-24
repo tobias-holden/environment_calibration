@@ -19,7 +19,7 @@ import manifest as manifest
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_repo4"
+exp_label = "test_prod_no_interventions"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -37,7 +37,7 @@ success_limit = int(calib_coord.at[Site,'success_limit'])
 param_key=pd.read_csv("parameter_key.csv")
 
 coord_df=load_coordinator_df()
-incidence_agebin=coord_df.at['incidence_comparison_agebin','value']
+incidence_agebin=float(coord_df.at['incidence_comparison_agebin','value'])
 
 # Define the Problem, it must be a functor
 class Problem:

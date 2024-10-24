@@ -13,11 +13,11 @@ library(patchwork)
 library(glue)
 
 # Experiment name
-exp <- "test_repo4"
+exp <- "test_prod_no_interventions"
 # Number of training batches
-training_batches <- 1
+training_batches <- 5
 # Batch size
-batch_size <- 10
+batch_size <- 200
 # Create folders to store post-calibration plots
 performance_folder<-paste("output",exp,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
@@ -96,15 +96,18 @@ all_scores %>%
   mutate(nps=param_set+ifelse(is.na(size),0,size)) %>%
   mutate(old_param_set=param_set,param_set=nps) -> all_scores
 
-all_scores
 
 all_scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> all_scores
 
-all_scores
+
+all_scores %>% arrange(score)
 
 all_scores %>% select(-size) -> all_scores
 
 all_scores %>% drop_na() -> scores
+
+best = scores %>% filter(score==min(score))
+best_param_set=best$param_set
 
 scores %>% 
   ungroup() %>%
@@ -124,9 +127,9 @@ imps$param_set -> imps
 scores %>%
   #filter(eir_score==0) %>%
   ggplot(aes(x=param_set,y=score)) +
-  geom_point() + 
-  geom_point(data=.%>%filter(score==min(scores$score,na.rm=T)),
-             aes(color="best")) +
+  geom_point(aes(shape=(param_set==best_param_set))) + 
+  # geom_point(data=.%>%filter(score==min(scores$score,na.rm=T)),
+  #            aes(shape="best")) +
   theme_minimal(base_size=16) +
   labs(color=NULL) +
   xlab("Parameter Set #") + ylab("Total Score")

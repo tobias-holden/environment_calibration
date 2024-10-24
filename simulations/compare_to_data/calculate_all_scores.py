@@ -151,8 +151,8 @@ def compare_annual_incidence(site,agebin):
     ### Load analyzed monthly MalariaSummaryReport from simulation
     sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
     #print(sim_cases)
-    sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
-    sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
+    sim_cases['Inc'] = sim_cases['Cases'] #/ sim_cases['Pop']
+    sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nansum).reset_index()
     # filter to age
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     ##### Score - Mean annual cases per person #####
@@ -170,6 +170,7 @@ def compute_all_scores(site,incidence_agebin=100):
     # merge unweighted scores into one dataframe, and return
     
     scores = check_EIR_threshold(site)
+    scores = scores[['Sample_ID','eir_score']]
     if(coord_df.at['incidence_comparison','value']):
         score1 = compare_incidence_shape(site,agebin=incidence_agebin)
         scores = scores.merge(score1[['Sample_ID','shape_score']], how='outer', on='Sample_ID')
