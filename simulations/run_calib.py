@@ -19,7 +19,7 @@ import manifest as manifest
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_prod_no_interventions"
+exp_label = "test_cm_nmf"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 

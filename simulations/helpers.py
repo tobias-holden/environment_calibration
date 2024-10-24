@@ -201,63 +201,65 @@ def add_outputs(task, site):
     return
 
 
-def add_hfca_hs(camp, hs_df):
-    for r, row in hs_df.iterrows() :
-        add_hs_from_file(camp, row)
+
+def add_health_seeking(camp,hs_df):
+    coord_df=load_coordinator_df()
+    for r, row in hs_df.iterrows():
+        sim_year=int(row['year'])-int(coord_df.at['simulation_start_year','value'])
+        if sim_year >=0:
+            sim_day=sim_year*365
+            sim_day=sim_day+day_of_year(int(row['month']),int(row['day']),int(row['year']))
+            
+            cm_coverage_by_age =  {'trigger': str(row['trigger']),                                         
+                                   'coverage': float(row['coverage']),                                     
+                                   'agemin': float(row['age_min']),                                        
+                                   'agemax': float(row['age_max']),
+                                   'rate': float(row['rate'])}
+            add_treatment_seeking(camp,                                                  
+                                  start_day = sim_day,                                        
+                                  duration = int(row['duration']),                                          
+                                  drug=["Artemether","Lumefantrine"],                                             
+                                  targets=[cm_coverage_by_age],                                                                
+                                  broadcast_event_name="Received_Treatment")
 
 
-def add_sapone_hs(camp,hs_df):
-    for year in hs_df['year']:                                                                                     
-        sub_df = hs_df[hs_df['year'] == year].reset_index()                                                      
-        targets = [] 
-        #print(year)                                                                                             
-        for r in range(len(sub_df)) :                                                                            
-            cm_coverage_by_age =  {'trigger': str(sub_df['trigger'][r]),                                         
-                                   'coverage': float(sub_df['coverage'][r]),                                     
-                                   'agemin': float(sub_df['age_min'][r]),                                        
-                                   'agemax': float(sub_df['age_max'][r]),
-                                   'rate': float(sub_df['rate'][r])}                                             
-            targets.append(cm_coverage_by_age)                                                                   
-        #print(targets)
-        add_treatment_seeking(camp,                                                  
-                              start_day = int(sub_df['start_day'][0]),                                        
-                              duration = int(sub_df['duration'][0]),                                          
-                              drug=['Artemether','Lumefantrine'],                                             
-                              targets=targets,                                                                
-                              broadcast_event_name="Received_Treatment")
 
-
-def add_hs_from_file(camp, row):
-    hs_child = row['U5_coverage']
-    hs_adult = row['adult_coverage']
-    severe_cases = row['severe_coverage']
-    start_day = row['simday']
-    duration = row['duration']
-    if 'drug_code' in row.index:
-        drug_code = row['drug_code']
-    else:
-        drug_code = 'AL'
-    if drug_code == 'AL':
-        drug = ['Artemether', 'Lumefantrine']
-    elif drug_code == 'SP':
-        drug = ['Sulfadoxine', 'Pyrimethamine']
-    elif drug_code == 'CQ':
-        drug = ['Chloroquine']
-    elif drug_code == 'A':
-        drug = ['Artemether']
-    else:
-        warnings.warn('Drug code not recognized. Assuming AL.')
-        drug = ['Artemether', 'Lumefantrine']
-
-    add_treatment_seeking(camp, start_day=start_day,
-                          targets=[{'trigger': 'NewClinicalCase', 'coverage': hs_child, 'agemin': 0, 'agemax': 5,
-                                   'rate': 0.3},
-                                   {'trigger': 'NewClinicalCase', 'coverage': hs_adult, 'agemin': 5, 'agemax': 100,
-                                    'rate': 0.3}],
-                          drug=drug, duration=duration)
-    add_treatment_seeking(camp, start_day=start_day,
-                          targets=[{'trigger': 'NewSevereCase', 'coverage': severe_cases, 'rate': 0.5}], #change by adding column and reviewing literature
-                          drug=drug, duration=duration)  # , broadcast_event_name='Received_Severe_Treatment')
+# def add_nmf_hs_from_file_old(camp, row, nmf_row):
+#     hs_child = row['U5_coverage']
+#     hs_adult = row['adult_coverage']
+#     start_day = row['simday']
+#     duration = row['duration']
+#     if 'drug_code' in row.index:
+#         drug_code = row['drug_code']
+#     else:
+#         drug_code = 'AL'
+#     if start_day == 0:  # due to dtk diagnosis/treatment configuration, a start day of 0 is not supported
+#         start_day = 1  # start looking for NMFs on day 1 (not day 0) of simulation
+#         if duration > 1:
+#             duration = duration - 1
+#     nmf_child = nmf_row['U5_nmf']
+#     nmf_adult = nmf_row['adult_nmf']
+# 
+#     # workaround for maximum duration of 1000 days is to loop, creating a new campaign every 1000 days
+#     separate_durations = [1000] * int(np.floor(duration/1000))  # create a separate campaign for each 1000 day period
+#     if (duration - np.floor(duration/1000) > 0):  # add final remaining non-1000-day duration
+#         separate_durations = separate_durations + [int(duration - np.floor(duration/1000) * 1000)]
+#     separate_start_days = start_day + np.array([0] + list(np.cumsum(separate_durations)))
+#     for dd in range(len(separate_durations)):
+#         if nmf_child * hs_child > 0:
+#             dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
+#                               target_group={'agemin': 0, 'agemax': 5},
+#                               coverage=nmf_child * hs_child,
+#                               repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
+#                               diagnostic_type='PF_HRP2', diagnostic_threshold=5,
+#                               receiving_drugs_event_name='Received_NMF_Treatment')
+#         if nmf_adult * hs_adult > 0:
+#             dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
+#                               target_group={'agemin': 5, 'agemax': 120},
+#                               coverage=nmf_adult * hs_adult,
+#                               repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
+#                               diagnostic_type='PF_HRP2', diagnostic_threshold=5,
+#                               receiving_drugs_event_name='Received_NMF_Treatment')
 
 
 def add_nmf_hs(camp, hs_df, nmf_df):
@@ -274,90 +276,42 @@ def add_nmf_hs(camp, hs_df, nmf_df):
 
 
 def add_nmf_hs_from_file(camp, row, nmf_row):
-    hs_child = row['U5_coverage']
-    hs_adult = row['adult_coverage']
-    start_day = row['simday']
-    duration = row['duration']
-    if 'drug_code' in row.index:
-        drug_code = row['drug_code']
-    else:
-        drug_code = 'AL'
-    if start_day == 0:  # due to dtk diagnosis/treatment configuration, a start day of 0 is not supported
-        start_day = 1  # start looking for NMFs on day 1 (not day 0) of simulation
-        if duration > 1:
-            duration = duration - 1
-    nmf_child = nmf_row['U5_nmf']
-    nmf_adult = nmf_row['adult_nmf']
-
-    # workaround for maximum duration of 1000 days is to loop, creating a new campaign every 1000 days
-    separate_durations = [1000] * int(np.floor(duration/1000))  # create a separate campaign for each 1000 day period
-    if (duration - np.floor(duration/1000) > 0):  # add final remaining non-1000-day duration
-        separate_durations = separate_durations + [int(duration - np.floor(duration/1000) * 1000)]
-    separate_start_days = start_day + np.array([0] + list(np.cumsum(separate_durations)))
-    for dd in range(len(separate_durations)):
-        if nmf_child * hs_child > 0:
-            dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
-                              target_group={'agemin': 0, 'agemax': 5},
-                              coverage=nmf_child * hs_child,
-                              repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
-                              diagnostic_type='PF_HRP2', diagnostic_threshold=5,
-                              receiving_drugs_event_name='Received_NMF_Treatment')
-        if nmf_adult * hs_adult > 0:
-            dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
-                              target_group={'agemin': 5, 'agemax': 120},
-                              coverage=nmf_adult * hs_adult,
-                              repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
-                              diagnostic_type='PF_HRP2', diagnostic_threshold=5,
-                              receiving_drugs_event_name='Received_NMF_Treatment')
-
-
-def add_sapone_nmf_hs(camp, hs_df, nmf_df):
-    # if no NMF rate is specified, assume all age groups have 0.0038 probability each day
-    if nmf_df.empty:
-        nmf_df = pd.DataFrame({'U5_nmf': [0.0038], 'adult_nmf': [0.0038]})
-    elif nmf_df.shape[0] != 1:
-        warnings.warn('The NMF dataframe has more than one row. Only values in the first row will be used.')
-    nmf_row = nmf_df.iloc[0]
-
-    # apply the health-seeking rate for clinical malaria to NMFs
-    for r, row in hs_df.iterrows():
-        add_sapone_nmf_hs_from_file(camp, row, nmf_row)
-
-
-def add_sapone_nmf_hs_from_file(camp, row, nmf_row):
-    start_day = row['start_day']
-    duration = row['duration']
-    if 'drug_code' in row.index:
-        drug_code = row['drug']
-    else:
-        drug_code = 'AL'
-    if start_day == 0:  # due to dtk diagnosis/treatment configuration, a start day of 0 is not supported
-        start_day = 1  # start looking for NMFs on day 1 (not day 0) of simulation
-        if duration > 1:
-            duration = duration - 1
-    nmf_child = nmf_row['U5_nmf']
-    nmf_adult = nmf_row['adult_nmf']
-
-    # workaround for maximum duration of 1000 days is to loop, creating a new campaign every 1000 days
-    separate_durations = [1000] * int(np.floor(duration/1000))  # create a separate campaign for each 1000 day period
-    if (duration - np.floor(duration/1000) > 0):  # add final remaining non-1000-day duration
-        separate_durations = separate_durations + [int(duration - np.floor(duration/1000) * 1000)]
-    separate_start_days = start_day + np.array([0] + list(np.cumsum(separate_durations)))
-    for dd in range(len(separate_durations)):
-        if nmf_child > 0:
-            dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
-                              target_group={'agemin': 0, 'agemax': 5},
-                              coverage=nmf_child,
-                              repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
-                              diagnostic_type='PF_HRP2', diagnostic_threshold=5,
-                              receiving_drugs_event_name='Received_NMF_Treatment')
-        if nmf_adult > 0:
-            dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
-                              target_group={'agemin': 5, 'agemax': 120},
-                              coverage=nmf_adult,
-                              repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
-                              diagnostic_type='PF_HRP2', diagnostic_threshold=5,
-                              receiving_drugs_event_name='Received_NMF_Treatment')
+    if row['trigger'] == "NewClinicalCase":
+        coord_df=load_coordinator_df()
+        sim_year=int(row['year'])-int(coord_df.at['simulation_start_year','value'])
+        if sim_year >=0:
+            sim_day=sim_year*365
+            sim_day=sim_day+day_of_year(int(row['month']),int(row['day']),int(row['year']))
+            hs_coverage = float(row['coverage'])
+            duration = int(row['duration'])
+            hs_agemin = int(row['age_min'])
+            hs_agemax = int(row['age_max'])
+            if 'drug' in row.index:
+                drug_code = "AL"
+            else:
+                drug_code = "AL"
+            if sim_day == 0:  # due to dtk diagnosis/treatment configuration, a start day of 0 is not supported
+                sim_day = 1  # start looking for NMFs on day 1 (not day 0) of simulation
+                if duration > 1:
+                    duration = duration - 1
+            nmf_rate=0
+            if hs_agemax > 5:
+                nmf_rate = nmf_row['adult_nmf']
+            if hs_agemax <= 5:
+                nmf_rate = nmf_row['U5_nmf']
+            # workaround for maximum duration of 1000 days is to loop, creating a new campaign every 1000 days
+            separate_durations = [1000] * int(np.floor(duration/1000))  # create a separate campaign for each 1000 day period
+            if (duration - np.floor(duration/1000) > 0):  # add final remaining non-1000-day duration
+                separate_durations = separate_durations + [int(duration - np.floor(duration/1000) * 1000)]
+            separate_start_days = sim_day + np.array([0] + list(np.cumsum(separate_durations)))
+            for dd in range(len(separate_durations)):
+                if nmf_rate > 0:
+                    dc(camp, 'MSAT', drug_code=drug_code, start_days=[separate_start_days[dd]],
+                                      target_group={'agemin': hs_agemin, 'agemax': hs_agemax},
+                                      coverage=nmf_rate*hs_coverage,
+                                      repetitions=separate_durations[dd], tsteps_btwn_repetitions=1,
+                                      diagnostic_type='PF_HRP2', diagnostic_threshold=5,
+                                      receiving_drugs_event_name='Received_NMF_Treatment')
 
 
 def build_standard_campaign_object(manifest):
@@ -387,7 +341,7 @@ def build_camp(site, coord_df=None):
   
     if not hs_df.empty:
         # case management for malaria
-        add_sapone_hs(camp,hs_df)
+        add_health_seeking(camp,hs_df)
     
     # NMFs
     if (not pd.isna(coord_df.at['NMF_filepath','value'])) and (not (coord_df.at['NMF_filepath','value'] == '')):
@@ -396,7 +350,7 @@ def build_camp(site, coord_df=None):
         nmf_df = pd.DataFrame()
     if (not pd.isna(coord_df.at['NMF_filepath','value'])) and (not (coord_df.at['NMF_filepath','value'] == '')):
         if not hs_df.empty:
-            add_sapone_nmf_hs(camp, hs_df, nmf_df)
+            add_nmf_hs(camp, hs_df, nmf_df)
     
     # SMC
     if (not pd.isna(coord_df.at['SMC_filepath','value'])) and (not (coord_df.at['SMC_filepath','value'] == '')):

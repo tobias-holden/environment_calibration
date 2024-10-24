@@ -28,21 +28,25 @@ def compute_scores_across_site(site):
     print(scores)
     weights = pd.read_csv(os.path.join(manifest.input_files_path,"my_weights.csv"),index_col=0)
     #print(weights)
+    ### Assume EIR Score is included ###
     scores['eir_score'] = [float(weights.at['eir_score','weight'])*val for val in scores['eir_score']]
-    if(coord_df.at['incidence_comparison','value']):
-        scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
-        scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']]
-    if(coord_df.at['prevalence_comparison','value']):
-        scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
-    
-    scores['shape_score'] = scores['shape_score'].fillna(10)
-    scores['intensity_score'] = scores['intensity_score'].fillna(10)
-    scores['prevalence_score'] = scores['prevalence_score'].fillna(10)
     scores['eir_score'] = scores['eir_score'].fillna(10)
     
+    ### Add incidence shape & intensity score ###
+    if(coord_df.at['incidence_comparison','value']):
+        scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
+        scores['shape_score'] = scores['shape_score'].fillna(10)
+        scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']
+        scores['intensity_score'] = scores['intensity_score'].fillna(10)
+    
+    ### Add prevalence score ###
+    if(coord_df.at['prevalence_comparison','value']):
+        scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
+        scores['prevalence_score'] = scores['prevalence_score'].fillna(10)
+
     scores = scores.rename(columns={"Sample_ID":"param_set"})
-    #scores = pd.melt(scores, id_vars="param_set")
-    #scores = scores.groupby("param_set")['value'].agg('sum').reset_index(name='score')
+    
+    ### Add ______ score ###
     
     return scores
 
@@ -84,7 +88,7 @@ def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filep
     
     #print(rcases1)
     #print(sim_cases1)
-    plt.figure(2,figsize=(6, 6), dpi=300, tight_layout=True)        
+    plt.figure(figsize=(6, 6), dpi=300, tight_layout=True)        
     plt.scatter(case_df['month'], case_df['norm_repincd'], label="Reference",color='k')
     plt.plot(case_df['month'],case_df['norm_simincd'],label="Simulation")
     plt.legend()
@@ -95,7 +99,7 @@ def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filep
     plt.xlim()
     plt.show()
     plt.savefig(os.path.join(plt_dir,f"incidence_{site}.png"))
-    
+    plt.clf()
     
 def save_rangeEIR(site="", wdir="./"):
     sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"InsetChart.csv"))
@@ -167,8 +171,8 @@ def plot_allAge_prevalence(site="",plt_dir=os.path.join(manifest.simulation_outp
         # refpcr['month'][index] = dayof.month
         # refpcr['day'][index] = dayof.day
         # refpcr['year'][index] = dayof.year
-    plt.clf()
-    plt.figure(1,figsize=(6, 6), dpi=300, tight_layout=True)
+    
+    plt.figure(figsize=(6, 6), dpi=300, tight_layout=True)
     plt.plot(sim_df['date'],sim_df['PCR Parasite Prevalence'], label="Simulation")
     plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", color='k')
     plt.legend()
@@ -178,7 +182,7 @@ def plot_allAge_prevalence(site="",plt_dir=os.path.join(manifest.simulation_outp
     plt.gcf().autofmt_xdate()
     plt.show()
     plt.savefig(os.path.join(plt_dir,f"prevalence_{site}.png"))
-
+    plt.clf()
 
 if __name__ == "__main__":
 

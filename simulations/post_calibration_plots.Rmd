@@ -13,7 +13,7 @@ library(patchwork)
 library(glue)
 
 # Experiment name
-exp <- "test_prod_no_interventions"
+exp <- "test_cm_nmf"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -145,7 +145,7 @@ ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),height = 8,
 scores %>%
   select(param_set,shape_score,intensity_score,prevalence_score,eir_score) %>%
   gather("score_type","value",-c("param_set")) %>%
-  ggplot(aes(x=param_set,y=value)) +
+  ggplot(aes(x=param_set,y=log10(value))) +
   geom_point(data=.%>%filter(!(param_set %in% imps)))  +
   geom_point(data=.%>%filter(param_set %in% imps),
              aes(color="improvement",
@@ -159,6 +159,19 @@ scores %>%
   xlab("Parameter Set #") + ylab("Score")
 ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
 
+
+scores %>%
+  filter(param_set %in% imps) %>%
+  group_by(round) %>% filter(score==min(score)) %>%
+  select(round,shape_score,intensity_score,prevalence_score,eir_score) %>%
+  gather("score_type","value",-c("round")) %>%
+  ggplot(aes(x=round,y=value)) +
+  geom_bar(aes(fill=factor(score_type)),
+           stat="identity",width=1) +
+  labs(fill=NULL) +
+  theme_minimal(base_size=16)
+  
+
 # Plot parameter convergence
 
 tp %>%
@@ -168,9 +181,13 @@ tp %>%
   mutate(param_set=param_set+batch_size*as.numeric(round))%>%
   ggplot(aes(x=param_set,y=emod_value)) +
   facet_wrap(~ifelse(transformation=="log",paste("Log",parameter),parameter))  +
-  geom_point(aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
+  geom_point(data=.%>%filter(!(param_set %in% imps)),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
+  geom_point(data=.%>%filter(param_set %in% imps),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
+                                                      color="improvement",shape=param_set==best$param_set)) +
   theme_minimal(base_size=16) +
-  labs(color=NULL,alpha="complete") +
+  labs(color=NULL,shape=NULL,alpha=NULL) +
+  guides(shape="none")+
+  scale_shape_manual(values=c(19,1))+
   xlab("Parameter Set #") + ylab("EMOD Parameter Value") +
   scale_alpha_manual(values=c(0.5,1))
 
@@ -182,9 +199,13 @@ tp %>%
   mutate(param_set=param_set+batch_size*as.numeric(round))%>%
   ggplot(aes(x=param_set,y=unit_value)) +
   facet_wrap(~parameter) +
-  geom_point(aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
+  geom_point(data=.%>%filter(!(param_set %in% imps)),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
+  geom_point(data=.%>%filter(param_set %in% imps),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
+                                                      color="improvement",shape=param_set==best$param_set)) +
   theme_minimal(base_size=16) +
-  labs(color=NULL,alpha="complete") +
+  labs(color=NULL,shape=NULL,alpha=NULL) +
+  guides(shape="none")+
+  scale_shape_manual(values=c(19,1))+
   xlab("Parameter Set #") + ylab("Unit Parameter Value") +
   scale_alpha_manual(values=c(0.5,1))
 

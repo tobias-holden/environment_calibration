@@ -45,7 +45,7 @@ python_plot_output_filepath = PROJECT_DIR / "report" / "_plots_Python"
 
 
 # TODO: remove following lines
-simulation_coordinator_path = input_files_path / "calibration_coordinator.csv"
+simulation_coordinator_path = input_files_path / "simulation_coordinator.csv"
 sweep_sim_coordinator_path = input_files_path / "sweep_sim_coordinator.csv"
 
 my_ep4_assets = None

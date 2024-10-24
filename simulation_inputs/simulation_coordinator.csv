@@ -11,8 +11,8 @@ prev0,0.2,
 include_site,TRUE,
 run_script_name,run_sims.py,
 nSims,1,
-simulation_start_year,2000,
-simulation_years,20,
+simulation_start_year,1960,
+simulation_years,60,
 demographics_filepath,demographics_files/Nanoro_demographics.json,
 NMF_filepath,nonmalarial_fevers/nmf_rates_generic.csv,blank if not applicable
 CM_filepath,cm/Nanoro_case_management.csv,blank if not applicable
