@@ -20,48 +20,22 @@ from datetime import datetime
 import math
 from scipy.special import gammaln
 
-coord_csv = load_coordinator_df(characteristic=False, set_index=True)
+coord_df = load_coordinator_df(characteristic=False, set_index=True)
 
-all_sites = []
-sites, nSims = load_sites()
-for site in sites:
-    if coord_csv.at[site, 'calculate_scores'] == 1 :
-        all_sites.append(site)
+#site = coord_df.at['site','value']
 
-start_year = 1960
+start_year = int(coord_df.at['simulation_start_year','value'])
 
 def load_case_data():
-    #improvement, have this be a simulation coordinator feature, to grab the correct file with routine_data
-    case_df= pd.read_csv(os.path.join(manifest.PROJECT_DIR,'reference_datasets','routine_seb_agg_confpres.csv'))
-    case_df = case_df.rename(columns={'Date': 'date', 'case': 'repincd'})
-    ##print(case_df)
-    ref_format = '%Y-%m-%d'
-    case_df['month'] = np.nan
-    case_df['day'] = np.nan
-    case_df['year'] = np.nan
-    for index, row in case_df.iterrows():
-        ##print(row['date'])
-        dayof = datetime.strptime(row['date'], ref_format)
-        case_df.loc[index,'month'] = dayof.month
-        case_df.loc[index,'day'] = dayof.day
-        case_df.loc[index,'year'] = dayof.year
-        
-    
+    case_df= pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                      coord_df.at['incidence_comparison_reference','value']))
     return(case_df)
 
 def load_prevalence_data(site):
     ### Load reference PCR prevalence data
-    refpcr = pd.read_csv(os.path.join(manifest.PROJECT_DIR,"reference_datasets","Nanoro_microscopy_prevalence_U5.csv"))
-    # convert date to month, day, and year
-    ref_date_format = '%m/%d/%Y'
-    refpcr['month'] = np.nan
-    refpcr['day'] = np.nan
-    refpcr['year'] = np.nan
-    for index, row in refpcr.iterrows():
-        dayof = datetime.strptime(row['date'], ref_date_format)
-        refpcr['month'][index] = dayof.month
-        refpcr['day'][index] = dayof.day
-        refpcr['year'][index] = dayof.year
+    refpcr = pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                      coord_df.at['prevalence_comparison_reference','value']))
+
     return(refpcr)
 
 def prepare_inset_chart_data(site):
@@ -128,62 +102,34 @@ def compare_incidence_shape(site,agebin):
     #### Load incidence data
     case_df = load_case_data()
     # filter to DS_Name
-    case_df = case_df[case_df['DS_Name']==site]
-    # filter to age ov5
-    case_df = case_df[case_df['age']=='ov5']
+    case_df = case_df[case_df['site']==site]
+    # filter to age of interest
+    case_df = case_df[case_df['age']==agebin]
     # convert case_df 'year' to start at 0, like simulations
     case_df['year'] = [(y - start_year) for y in case_df['year']]
+    print(case_df)
     # sum incidence across year    
-    case_df=case_df.merge(case_df.groupby('year')['repincd'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
+    case_df=case_df.merge(case_df.groupby('year')['case'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
     # normalize monthly incidence so each year sums to 1
-    case_df['norm_repincd'] = case_df.apply(lambda row: (row['repincd'] / row['max_incd']), axis=1)
+    case_df['norm_repincd'] = case_df.apply(lambda row: (row['case'] / row['max_incd']), axis=1)
     # get average normalized incidence per month
-    rcases = case_df.groupby(['month','DS_Name'])['norm_repincd'].agg(np.nanmean).reset_index()
+    rcases = case_df.groupby(['month','site'])['norm_repincd'].agg(np.nanmean).reset_index()
     
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
-    # filter to age 5+
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
+    # filter to age of interest
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     # get mean population and clinical cases by month, year, and Sample_ID
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
     sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
+    #print(sim_cases)
     # get mean normalized incidence by month/sample_id (across years)
-    sim_cases = sim_cases.groupby(['Sample_ID', 'month','agebin'])['norm_simincd'].agg(np.nanmean).reset_index()
+    sim_cases = sim_cases.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
     # merge simulated normalized monthly incidence with reference data on ['month']
     score1 = sim_cases.merge(rcases, on ='month')
     score1 = score1.dropna(subset=['norm_simincd']).reset_index()
 
     ### Load analyzed EventRecorder from simulation
-    # print(score1)
-    # exit(1)
-    # sim_treated = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site, "events.csv"))
-    # sim_treated = sim_treated[sim_treated['Event_Name']=="Received_Treatment"]
-    # # convert age to years
-    # sim_treated['Age'] = [np.trunc(a/365) for a in sim_treated['Age']]
-    # # filter to age >=5
-    # sim_treated = sim_treated[sim_treated['Age'] >= 5]
-    # # convert time to year, and month
-    # sim_treated['year'] = [np.trunc(t/365) for t in sim_treated['Time']]
-    # sim_treated['month']= sim_treated.apply(lambda row: np.trunc((row['Time'] - (row['year']*365))/30.001)+1, axis=1)
-    # sim_treated=sim_treated[sim_treated['month']<=12]
-    # # count # of events by month/year/run_number/sample_id
-    # sim_treated=sim_treated.groupby(['Sample_ID', 'year','month','Run_Number']).agg("size").reset_index(name='counts')
-    # # merge sim_treated with sim_cases for population
-    # sim_treated1 = sim_treated.merge(sim_cases, on=['Sample_ID', 'year','month'], how='inner')
-    # # calculate incidence
-    # sim_treated1['simincd'] = sim_treated1['counts'] / sim_treated1['Pop']
-    # # get average incidence by sample_ID/month (across run_numbers & years)
-    # sim_treated1 = sim_treated1.groupby(['Sample_ID','month'])['simincd'].agg(np.nanmean).reset_index(name='simincd')
-    # sim_cases1 = sim_treated1
-    # # calculate max of simincd per sample_ID
-    # sim_cases1=sim_cases1.merge(sim_cases1.groupby(['Sample_ID'])['simincd'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
-    # # normalized against maximum
-    # sim_cases1['norm_simincd'] = sim_cases1.apply(lambda row: (row['simincd'] / row['max_simincd']), axis=1)
-    # # get mean normalized incidence by month/sample_id (across years)
-    # sim_cases1 = sim_cases1.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
-    # # merge simulated normalized monthly incidence with reference data on ['month']
-    # score1 = sim_cases1.merge(rcases, on ='month')
-    # score as log-likelihood
     ll = compute_incidence_likelihood(score1)
     ll = ll.groupby(['Sample_ID'])['ll'].agg(np.nansum).reset_index()
     score1 = score1.drop(columns=['ll']).merge(ll,on='Sample_ID')
@@ -197,13 +143,13 @@ def compare_incidence_shape(site,agebin):
   
 def compare_annual_incidence(site,agebin):
     rcases = load_case_data()
-    rcases = rcases[rcases['DS_Name']==site]
-    rcases['cases']=rcases['repincd'] / 10000
+    rcases = rcases[rcases['site']==site]
+    rcases['cases']=rcases['case'] / 10000
     rcases = rcases.groupby(['age','year'])[['cases']].agg(np.nansum).reset_index()
-    target=rcases[rcases['age']=='ov5']
+    target=rcases[rcases['age']==agebin]
     target=target['cases'].mean()
     ### Load analyzed monthly MalariaSummaryReport from simulation
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_annual.csv"))
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
     #print(sim_cases)
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
@@ -220,25 +166,27 @@ def compare_annual_incidence(site,agebin):
     #print(score2)
     return score2
 
-def compute_all_scores(site):
+def compute_all_scores(site,incidence_agebin=100):
     # merge unweighted scores into one dataframe, and return
-    score1 = compare_incidence_shape(site,agebin=5)
-    score2 = compare_annual_incidence(site,agebin=5)
-    score3 = compare_all_age_PCR_prevalence(site)
-    score4 = check_EIR_threshold(site)
     
-    scores = score1.merge(score2[['Sample_ID','intensity_score']], how='outer', on='Sample_ID')
-    scores = scores.merge(score3[['Sample_ID','prevalence_score']], how='outer', on='Sample_ID')
-    scores = scores.merge(score4[['Sample_ID','eir_score']], how='outer', on='Sample_ID')
-    #print(scores)
+    scores = check_EIR_threshold(site)
+    if(coord_df.at['incidence_comparison','value']):
+        score1 = compare_incidence_shape(site,agebin=incidence_agebin)
+        scores = scores.merge(score1[['Sample_ID','shape_score']], how='outer', on='Sample_ID')
+        score2 = compare_annual_incidence(site,agebin=incidence_agebin)
+        scores = scores.merge(score2[['Sample_ID','intensity_score']], how='outer', on='Sample_ID')
+    if(coord_df.at['prevalence_comparison','value']):
+        score3 = compare_all_age_PCR_prevalence(site)
+        scores = scores.merge(score3[['Sample_ID','prevalence_score']], how='outer', on='Sample_ID')
+    
     return scores
   
   
 
 if __name__ == '__main__':
-  #compute_all_scores("Nanoro")
-  compare_incidence_shape("Nanoro",agebin=5)
-  print(compare_annual_incidence(site,agebin=5))
+  site="Nanoro"
+  print(compare_incidence_shape(site,agebin=100))
+  print(compare_annual_incidence(site,agebin=100))
   print(compare_all_age_PCR_prevalence(site))
-  #print(compare_annual_incidence(site="Nanoro",agebin=5))
+  print(check_EIR_threshold(site))
 

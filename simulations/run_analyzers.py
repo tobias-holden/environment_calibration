@@ -4,7 +4,6 @@ import os
 import argparse
 import manifest as manifest
 from helpers import get_comps_id_filename, load_coordinator_df
-from load_inputs import load_sites
 from idmtools.core.platform_factory import Platform
 from analyzers.analyze import analyze_experiment
 
@@ -31,23 +30,19 @@ def run_analyzers(site: str, expid: str = None, characteristic: bool = False) ->
     a_ok=True
     if a_ok:#check_experiment(site, platform): #checks if succeeded, removed for now to allow for partial analysis
         coord_df = load_coordinator_df(characteristic = characteristic, set_index = True)
-        print("Here")
         # for expt_name, id in exp_name_id.items():
         # site = expt_name.replace('validation_', '')
-        print(coord_df)
-        report_start_day = int(coord_df.at[site,'report_start_day'])
-        simulation_duration = int(coord_df.at[site, 'simulation_duration'])
         # determine the analyzers to run for each site
         wdir=manifest.simulation_output_filepath
         wdir=os.path.join(wdir,site)
 
         if not os.path.exists(wdir):
-            os.mkdir(wdir)
+            os.makedirs(wdir)
 
         analyzers_id_file = get_comps_id_filename(site=site, level=2)
         
 
-        analyze_experiment(platform, exp_id, wdir, report_start_day, simulation_duration)
+        analyze_experiment(platform, exp_id, wdir)
 
         with open(analyzers_id_file, 'w') as id_file:
             id_file.write(site)
@@ -70,6 +65,9 @@ if __name__ == "__main__":
         default=None
     )
     args = parser.parse_args()
-    sites, nSims = load_sites()
+    sites=[]
+    coord_df=load_coordinator_df()
+    my_site=coord_df.at['site','value']
+    sites=[my_site]
     for site in sites:
         run_analyzers(site,args.expid)

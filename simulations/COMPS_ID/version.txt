@@ -1,0 +1,3 @@
+Eradication version: 2.20.5359.0
+branch: Malaria-Ongoing(d8c2867f18)
+emodpy_malaria version: 2.4.3

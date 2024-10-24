@@ -26,7 +26,7 @@ def submit_sim(site=None, nSims=1, characteristic=False, priority=manifest.prior
     """
     # Create a platform
     # Show how to dynamically set priority and node_group
-    platform = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139', time='6:00:00',
+    platform = Platform("SLURM_LOCAL", job_directory=manifest.job_directory, partition='b1139testnode', time='6:00:00',
                             account='b1139', modules=['singularity'], max_running_jobs=100, mem=4000)
     
     experiment = create_exp(characteristic, nSims, site, my_manifest, not_use_singularity,platform, X)
@@ -56,26 +56,6 @@ def add_calib_params(task, param, value, ptype):
         task.set_parameter(param, str(value))
         
     return {param: value}
-    
-# def set_calib_params(simulation, calib_params, sets):
-#     X = calib_params[calib_params['param_set'] == sets]
-#     X = X.reset_index(drop=True)
-#     for j in range(len(X)):
-#         param=X['parameter'][j]
-#         value=X['emod_value'][j]
-#         ptype=X['type'][j]
-#         if param == "Temperature_Shift":
-#             simulation.task.set_parameter("Air_Temperature_Offset",int(value))
-#             simulation.task.set_parameter("Land_Temperature_Offset",int(value))
-#         else:
-#             if ptype == "integer":
-#                 simulation.task.set_parameter(param, int(value))
-#             elif ptype in ["float", "double"]:
-#                 simulation.task.set_parameter(param, float(value))
-#             elif ptype in ['string']:
-#                 simulation.task.set_parameter(param, str(value))
-#         
-#     return {'param_set':sets}
 
 def create_exp(characteristic, nSims, site, my_manifest, not_use_singularity, platform, X):
     task = _create_task(my_manifest, site)
@@ -99,15 +79,11 @@ def _create_builder(task,characteristic, nSims, site, X):
     builder.add_sweep_definition(update_sim_random_seed, range(nSims))
     print("sweep run_number")
     # Sweep sites and seeds - based on values in simulation_coordinator csv
-    # builder.add_sweep_definition(set_simulation_scenario, [site])
     if characteristic:
         builder.add_sweep_definition(set_simulation_scenario_for_characteristic_site, [site])
     else:
         builder.add_sweep_definition(set_simulation_scenario_for_matched_site, [site])
     print("setting scenario")
-    #set if using csv/not running with my func
-    #X = pd.read_csv(os.path.join(manifest.CURRENT_DIR,"10_initial_samples.csv"))
-
     builder.add_sweep_definition(partial(add_calib_param_func, calib_params=X), np.unique(X['param_set']))
     print("sweep builder params")
     print("made builder")

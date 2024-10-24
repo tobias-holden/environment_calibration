@@ -12,6 +12,7 @@ def clean_logs():
     for file in os.listdir(log_dir):
             os.remove(os.path.join(log_dir,file))
 
+
 if __name__ == "__main__":
     clean_analyzers()
     clean_logs()

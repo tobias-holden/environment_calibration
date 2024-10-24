@@ -21,3 +21,9 @@ simulation_outputs/
 
 # experiments
 experiments/
+
+# Logs and related files
+COMPS_log.log
+idmtool*.log
+log/
+output/

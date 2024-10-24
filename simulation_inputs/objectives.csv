@@ -1,5 +1,0 @@
-objective,weight,option_1,option_2,age_min,age_max,start_year,end_year,include
-shape_score,200.0,option_1,option_2,age_min,age_max,start_year,end_year,include
-intensity_score,0.0,option_1,option_2,age_min,age_max,start_year,end_year,include
-prevalence_score,0.0,option_1,option_2,age_min,age_max,start_year,end_year,include
-eir_score,5.0,option_1,option_2,age_min,age_max,start_year,end_year,include

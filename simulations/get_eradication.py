@@ -16,7 +16,7 @@ def get_eradication(use_local_eradication, my_manifest=manifest):
     
     if not use_local_eradication:
         if not os.path.exists(manifest.DOWNLOAD_DIR):
-            os.mkdir(manifest.DOWNLOAD_DIR)
+            os.makedirs(manifest.DOWNLOAD_DIR)
         era_folder = pathlib.Path(my_manifest.eradication_path).parent
         shutil.copytree(era_folder, era_folder.parent / "Old_Eradication", dirs_exist_ok=True)
         msg.append(f"Copying old Eradication in local folder to : {era_folder.parent / 'Old_Eradication'}.\n")

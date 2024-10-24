@@ -1,5 +1,6 @@
 import os
 import json
+import itertools
 from functools import partial
 import emod_api.config.default_from_schema_no_validation as dfs
 import emod_api.demographics.Demographics as Demog
@@ -16,11 +17,26 @@ from emodpy_malaria.reporters.builtin import (
     add_report_node_demographics,
     add_report_vector_stats
 )
+from malaria_vaccdrug_campaigns import add_vaccdrug_campaign
 import pandas as pd
 import manifest
 import warnings
 import numpy as np
+from datetime import datetime
 
+def day_of_year(month, day, year):
+    """
+    Converts a given month and day to the day of the year.
+
+    Args:
+    month: The month (1-12).
+    day: The day of the month (1-31).
+    year: The year.
+
+    Returns:
+    The day of the year (1-366).
+    """
+    return datetime(year, month, day).timetuple().tm_yday
 
 def update_sim_random_seed(simulation, value):
     simulation.task.config.parameters.Run_Number = value
@@ -29,7 +45,9 @@ def update_sim_random_seed(simulation, value):
 
 def set_climate(config, shift):
     """
-    Set climate to specific files, currently hardcoded.
+    Set climate to specific files, currently hardcoded to apply 
+    a change of <shift> degrees to each daily land & temperature value
+    in the climate input files
     """
     config.parameters.Air_Temperature_Offset = shift
     config.parameters.Land_Temperature_Offset = shift
@@ -38,20 +56,23 @@ def set_climate(config, shift):
 
 def set_species_from_file(config, vector_file):
     """
-    Set species and habitat level, assuming 1 species and 2 habitat type
-    (1 input 1 constant)
+    Set up mosquito species and behavioral parameters
     """
-    # Multiple-Species Capability
-    vdf = pd.read_csv(os.path.join(manifest.input_files_path,'vectors',vector_file))                                              
-    vdf = vdf[vdf['node_id']== vdf['node_id'].unique()[0]]                                                                 
-    s = [species for species in vdf['species']]                                                                            
-    conf.add_species(config, manifest, s) 
-    for r in range(len(s)):          
+    # Load input vector file
+    vdf = pd.read_csv(os.path.join(manifest.input_files_path,vector_file))   
+    # Get list of species
+    s = [species for species in vdf['species']]
+    # Add species to simulation
+    conf.add_species(config, manifest, s)
+    # For each species...
+    for r in range(len(s)):    
+        # Set vector parameter - anthropophily
         conf.set_species_param(config, 
                                species = vdf['species'][r],
                                parameter='Anthropophily',
                                value=vdf['anthropophily'][r],
                                overwrite=True)
+        # Set vector parameter - indoor feeding fraction
         conf.set_species_param(config, 
                                species = vdf['species'][r],
                                parameter='Indoor_Feeding_Fraction',
@@ -61,11 +82,13 @@ def set_species_from_file(config, vector_file):
 
 
 def set_param_fn(config):
+    coord_df=load_coordinator_df()
+    
     config = conf.set_team_defaults(config, manifest)
-    
-    set_species_from_file(config, vector_file = "vectors.csv")
-   
-    
+    # Add vector species to simulation
+    set_species_from_file(config, vector_file = coord_df.at['vector_filepath','value'])
+    # Turn on/off InsetChart
+    config.parameters.Enable_Default_Reporting = 1
     config.parameters.Simulation_Duration = 70 * 365 + 1
     config.parameters.x_Temporary_Larval_Habitat = 1
     config.parameters.Age_Initialization_Distribution_Type = "DISTRIBUTION_COMPLEX"
@@ -104,58 +127,77 @@ def add_outputs(task, site):
     Requesting reports/outputs to the task.
     """
     coord_df = load_coordinator_df(characteristic=False, set_index=True)
-    simulation_duration = coord_df.at[site,'simulation_duration']
-    report_start = coord_df.at[site,'report_start_day']
-    last_year = int(simulation_duration / 365)
-    first_year = int(report_start / 365)
-    sim_start_year = 0 #This may be useful to change? I don't know the input data
-    if(coord_df.at[site,'include_MonthlyMalariaSummaryReport']):
-        for year in range(first_year, last_year):
-            start_day = 0 + 365 * year
-            sim_year = sim_start_year + year
-            add_malaria_summary_report(
-                task,
-                manifest,
-                start_day=start_day,
-                end_day=365 + year * 365,
-                reporting_interval=30,
-                age_bins=[0.25, 5, 115],
-                max_number_reports=13,
-                pretty_format=True,
-                filename_suffix=f"Monthly{sim_year}")
-    if(coord_df.at[site,'include_AnnualMalariaSummaryReport']):
-        add_malaria_summary_report(
-                task,
-                manifest,
-                start_day=first_year*365,
-                end_day=last_year * 365,
-                reporting_interval=365,
-                age_bins=[0.25, 5, 115],
-                max_number_reports=last_year-first_year+1,
-                pretty_format=True,
-                filename_suffix=f"Yearly{first_year}-{last_year}")
-
-    # add_vector_habitat_report(task, manifest)
-    # add_event_recorder(
-    #     task,
-    #     event_list=["Received_Treatment"],
-    #     start_day=int(report_start),
-    #     end_day=int(simulation_duration),
-    #     min_age_years=0,
-    #     max_age_years=50
-    # )
-
-    # add_report_node_demographics(task, manifest,
-    #                              age_bins = [0.25,5,50],
-    #                              stratify_by_gender = False)
-    # 
-    # add_report_vector_stats(task, manifest,
-    #                         species_list = ['arabiensis','funestus','gambiae'],
-    #                         stratify_by_species = True,
-    #                         include_death_state = False,
-    #                         include_wolbachia = False,
-    #                         include_gestation = False,
-    #                         include_microsporidia = False)
+    simulation_years = int(coord_df.at['simulation_years','value'])
+    sim_start_year = int(coord_df.at['simulation_start_year','value'])
+    
+    # By default, inset_chart is included 
+    # change the value 'config.parameters.Enable_Default_Reporting = 1' to 0 to turn it OFF #
+    # This covers the case where PCR prevalence is desired and is currently used to check EIR
+    
+    ### Incidence-related reports ###     
+    if(coord_df.at['incidence_comparison','value']):
+        incidence_df = pd.read_csv(os.path.join(manifest.base_reference_filepath,coord_df.at['incidence_comparison_reference','value']))
+        incidence_agebins = sorted([float(a) for a in incidence_df['age'].unique()])
+        first_year = int(incidence_df['year'].min()) - sim_start_year
+        last_year = int(incidence_df['year'].max()) - sim_start_year + 1
+        
+        # Logical bounds on years to request
+        if first_year < 0:
+            first_year=0
+        if last_year > simulation_years:
+            last_year=simulation_years
+        
+        if(coord_df.at['incidence_comparison_frequency','value']=='monthly'):
+            for year in range(first_year, last_year):
+                start_day = 0 + 365 * year
+                sim_year = sim_start_year + year
+                add_malaria_summary_report(task,manifest,
+                                           start_day=start_day,end_day=365 + year * 365,
+                                           reporting_interval=30,age_bins=incidence_agebins,
+                                           max_number_reports=13,pretty_format=True,
+                                           filename_suffix=f"Monthly_incidence_{sim_year}")
+                                           
+        if(coord_df.at['incidence_comparison_frequency','value']=='annual'):
+            add_malaria_summary_report(task,manifest,
+                                       start_day=first_year*365,end_day=last_year*365+365,
+                                       reporting_interval=365,age_bins=incidence_agebins,
+                                       max_number_reports=last_year-first_year+1,
+                                       pretty_format=True,
+                                       filename_suffix=f"Yearly_incidence_{first_year+sim_start_year}_to_{last_year+sim_start_year}")
+    ### Prevalence-related reports ### 
+    if(coord_df.at['prevalence_comparison','value']):
+        if(coord_df.at['prevalence_comparison_diagnostic','value']!="PCR"):
+            prevalence_df = pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                                    coord_df.at['prevalence_comparison_reference','value']))
+            prevalence_agebins =  sorted([float(a) for a in prevalence_df['age'].unique()])
+            first_year = int(prevalence_df['year'].min()) - sim_start_year
+            last_year = int(prevalence_df['year'].max()) - sim_start_year
+            
+            # Logical bounds on years to request
+            if first_year < 0:
+                first_year=0
+            if last_year > simulation_years:
+                last_year=simulation_years
+                
+            if(coord_df.at['prevalence_comparison_frequency','value']=='monthly'):
+                for year in range(first_year, last_year):
+                    start_day = 0 + 365 * year
+                    sim_year = sim_start_year + year
+                    add_malaria_summary_report(task,manifest,
+                                               start_day=start_day,end_day=365 + year * 365,
+                                               reporting_interval=30,age_bins=prevalence_agebins,
+                                               max_number_reports=13,pretty_format=True,
+                                               filename_suffix=f"Monthly_prevalence_{sim_year}")
+                                               
+            if(coord_df.at['prevalence_comparison_frequency','value']=='annual'):
+                add_malaria_summary_report(task,manifest,
+                                           start_day=first_year*365,end_day=last_year*365,
+                                           reporting_interval=365,age_bins=prevalence_agebins,
+                                           max_number_reports=last_year-first_year+1,
+                                           pretty_format=True,
+                                           filename_suffix=f"Yearly_prevalence_{first_year+sim_start_year}_to_{last_year+sim_start_year}")
+        
+        
     return
 
 
@@ -332,14 +374,14 @@ def build_camp(site, coord_df=None):
     # create campaign object
     if coord_df is None:
         coord_df = pd.read_csv(manifest.simulation_coordinator_path)
-        coord_df = coord_df.set_index('site')
+        coord_df = coord_df.set_index('option')
 
     camp = build_standard_campaign_object(manifest)
     # === INTERVENTIONS === #
 
     # health-seeking
-    if (not pd.isna(coord_df.at[site, 'CM_filepath'])) and (not (coord_df.at[site, 'CM_filepath'] == '')):
-        hs_df = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'CM_filepath'])
+    if (not pd.isna(coord_df.at['CM_filepath','value'])) and (not (coord_df.at['CM_filepath','value'] == '')):
+        hs_df = pd.read_csv(manifest.input_files_path / coord_df.at['CM_filepath','value'])
     else:
         hs_df = pd.DataFrame()
   
@@ -348,17 +390,17 @@ def build_camp(site, coord_df=None):
         add_sapone_hs(camp,hs_df)
     
     # NMFs
-    if (not pd.isna(coord_df.at[site, 'NMF_filepath'])) and (not (coord_df.at[site, 'NMF_filepath'] == '')):
-        nmf_df = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'NMF_filepath'])
+    if (not pd.isna(coord_df.at['NMF_filepath','value'])) and (not (coord_df.at['NMF_filepath','value'] == '')):
+        nmf_df = pd.read_csv(manifest.input_files_path / coord_df.at['NMF_filepath','value'])
     else:
         nmf_df = pd.DataFrame()
-    if (not pd.isna(coord_df.at[site, 'NMF_filepath'])) and (not (coord_df.at[site, 'NMF_filepath'] == '')):
+    if (not pd.isna(coord_df.at['NMF_filepath','value'])) and (not (coord_df.at['NMF_filepath','value'] == '')):
         if not hs_df.empty:
             add_sapone_nmf_hs(camp, hs_df, nmf_df)
     
     # SMC
-    if (not pd.isna(coord_df.at[site, 'SMC_filepath'])) and (not (coord_df.at[site, 'SMC_filepath'] == '')):
-        smc_df = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'SMC_filepath'])
+    if (not pd.isna(coord_df.at['SMC_filepath','value'])) and (not (coord_df.at['SMC_filepath','value'] == '')):
+        smc_df = pd.read_csv(manifest.input_files_path / coord_df.at['SMC_filepath','value'])
     else:
         smc_df = pd.DataFrame()
     if not smc_df.empty:
@@ -367,12 +409,12 @@ def build_camp(site, coord_df=None):
 
     # ITNS
     itn_df = pd.DataFrame()
-    if (not pd.isna(coord_df.at[site, 'ITN_filepath'])) and (not (coord_df.at[site, 'ITN_filepath'] == '')):
-        if (not pd.isna(coord_df.at[site, 'ITN_age_filepath'])) and (not (coord_df.at[site, 'ITN_age_filepath'] == '')):
-            if(not pd.isna(coord_df.at[site, 'ITN_season_filepath'])) and (not (coord_df.at[site, 'ITN_season_filepath'] == '')):
-                itn_df = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'ITN_filepath'])
-                itn_age = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'ITN_age_filepath'])
-                itn_season = pd.read_csv(manifest.input_files_path / coord_df.at[site, 'ITN_season_filepath'])
+    if (not pd.isna(coord_df.at['ITN_filepath','value'])) and (not (coord_df.at['ITN_filepath','value'] == '')):
+        if (not pd.isna(coord_df.at['ITN_age_filepath','value'])) and (not (coord_df.at['ITN_age_filepath','value'] == '')):
+            if(not pd.isna(coord_df.at['ITN_season_filepath','value'])) and (not (coord_df.at['ITN_season_filepath','value'] == '')):
+                itn_df = pd.read_csv(manifest.input_files_path / coord_df.at['ITN_filepath','value'])
+                itn_age = pd.read_csv(manifest.input_files_path / coord_df.at['ITN_age_filepath','value'])
+                itn_season = pd.read_csv(manifest.input_files_path / coord_df.at['ITN_season_filepath','value'])
         
     if not itn_df.empty:
         # Distribute ITNs with age- and season-based usage patterns
@@ -383,20 +425,19 @@ def build_camp(site, coord_df=None):
 def set_simulation_scenario(simulation, site, csv_path):
     # get information on this simulation setup from coordinator csv
     coord_df = pd.read_csv(csv_path)
-    coord_df = coord_df.set_index('site')
+    coord_df = coord_df.set_index('option')
 
     # === set up config === #
     # simulation duration
-    simulation_duration = int(coord_df.at[site, 'simulation_duration'])
+    simulation_duration = int(coord_df.at['simulation_years','value'])*365
     simulation.task.config.parameters.Simulation_Duration = simulation_duration
     simulation.task.config.parameters.Enable_Vital_Dynamics = 1
-    demographics_filename = str(coord_df.at[site, 'demographics_filepath'])
+    demographics_filename = str(coord_df.at['demographics_filepath','value'])
     #print(demographics_filename)
     if demographics_filename and demographics_filename != 'nan':
         simulation.task.transient_assets.add_asset(manifest.input_files_path / demographics_filename)
         simulation.task.config.parameters.Demographics_Filenames = [demographics_filename.rsplit('/',1)[-1]]
     simulation.task.config.parameters.Age_Initialization_Distribution_Type = 'DISTRIBUTION_COMPLEX'
-    
 
     # === set up campaigns === #
     build_camp_partial = partial(build_camp, site=site, coord_df=coord_df)
@@ -410,19 +451,15 @@ def build_demog():
     """
     This function builds a demographics input file for the DTK using emod_api.
     """
-    coord_df = load_coordinator_df(characteristic=False, set_index=True)
-    DS = str(coord_df.index[0])
-    new_nodes = [Demog.Node(lat=1.857481477,lon=6.444799744, pop=1000, name=DS, forced_id=1)]
-    demog = Demographics.MalariaDemographics(
-        nodes=new_nodes,
-        idref=DS,
-        init_prev=0.25,
-        include_biting_heterogeneity=True,
-    )
-    demog.SetEquilibriumVitalDynamics(CrudeRate(38.0))
-    demog.SetEquilibriumAgeDistFromBirthAndMortRates(CrudeRate(38.0), CrudeRate(38.0))
-    demog.SetBirthRate(CrudeRate(38.0 * 1000))
-
+    coord_df = load_coordinator_df()
+    
+    demog= Demographics.from_template_node(lat=float(coord_df.at['lat','value']), 
+                                           lon=float(coord_df.at['lon','value']), 
+                                           pop=int(coord_df.at['pop','value']), 
+                                           forced_id=1, 
+                                           init_prev=float(coord_df.at['prev0','value']), 
+                                           include_biting_heterogeneity=True)
+    
     return demog
 
 set_simulation_scenario_for_matched_site = partial(set_simulation_scenario, csv_path=manifest.simulation_coordinator_path)
@@ -430,13 +467,19 @@ set_simulation_scenario_for_characteristic_site = partial(set_simulation_scenari
 
 
 def add_smc(camp,smc_df):
-    for r in range(len(smc_df)):                                                                             
-        dc(camp, campaign_type="MDA", drug_code=str(smc_df['drug_code'][r]),                   
-                          start_days=[int(smc_df['start_day'][r])],                                         
-                          repetitions=1,                                                                    
-                          coverage=float(smc_df['coverage'][r]),                                            
-                          target_group={'agemin': float(smc_df['agemin'][r]), 'agemax': float(smc_df['agemax'][r])},                                       
-                          receiving_drugs_event_name="Received_SMC")                                        
+    coord_df=load_coordinator_df(characteristic=False, set_index=True)
+    sim_start_yr = int(coord_df.at['simulation_start_year','value'])
+    for r, row in smc_df.iterrows():
+         smc_year=int(row['year']) - sim_start_yr
+         smc_month=int(row['month'])
+         smc_day=int(row['day'])
+         smc_start = smc_year*365 + day_of_year(smc_month,smc_day,smc_year)
+         add_vaccdrug_campaign(camp,campaign_type='SMC', start_days=[smc_start],
+                               coverages=[row['coverage']],
+                               target_group={'agemin': row['agemin'],
+                                                'agemax': row['agemax']},
+                               receiving_drugs_event=True)  ## If False uses vaccSMC with automatic offset of 17 days, if True, uses vaccDrugSMC
+                          
 
 
 def add_itns(camp,itn_df,itn_age,itn_season):
@@ -485,20 +528,25 @@ def add_calib_param_func(simulation, calib_params, sets, hab_base = 1e8, const_b
         simulation.task.config.parameters.Land_Temperature_Offset = float(X['emod_value'][0])
     else:
         warnings.warn("Climate model is not enabled; skipping temperature offsets.")
-    #Vectors
+    # Vectors
     coord_df = load_coordinator_df(characteristic=False, set_index=True)
-    vdf = pd.read_csv(os.path.join(manifest.input_files_path,coord_df['vector_filepath'].iloc[0]))
+    # Load vector file
+    vdf = pd.read_csv(os.path.join(manifest.input_files_path,coord_df.at['vector_filepath','value']))
+    # Get list of species
     s = [species for species in vdf['species']]
     for r in range(len(s)):
+        # Update habitat available to species
         habitat1 = dfs.schema_to_config_subnode(
             manifest.schema_file, ["idmTypes", "idmType:VectorHabitat"]
         )
+        # constantly available habitat
         habitat1.parameters.Habitat_Type = "CONSTANT"
         malaria_config.set_species_param(
             simulation.task.config, vdf['species'][r], "Habitats", habitat1.parameters, overwrite=True
         )
         #habitat1.parameters.Max_Larval_Capacity = int(const_base * (vdf['fraction'][r] * vdf['constant'][r]) * float(X['emod_value'][1]))
-
+        
+        # temporarily available habitat
         habitat2 = dfs.schema_to_config_subnode(
             manifest.schema_file, ["idmTypes", "idmType:VectorHabitat"]
         )
@@ -506,6 +554,7 @@ def add_calib_param_func(simulation, calib_params, sets, hab_base = 1e8, const_b
         malaria_config.set_species_param(simulation.task.config, vdf['species'][r], "Habitats", habitat2.parameters, overwrite=False)
         #habitat2.parameters.Max_Larval_Capacity = int(hab_base * (vdf['fraction'][r] * vdf['temp_rain'][r]) * float(X['emod_value'][2]))
         
+        # semipermanent habitat
         habitat3 = dfs.schema_to_config_subnode(
             manifest.schema_file, ["idmTypes", "idmType:VectorHabitat"]
         )
@@ -528,7 +577,7 @@ def load_coordinator_df(characteristic=False, set_index=True):
     csv_file = manifest.sweep_sim_coordinator_path if characteristic else manifest.simulation_coordinator_path
     coord_df = pd.read_csv(csv_file)
     if set_index:
-        coord_df = coord_df.set_index('site')
+        coord_df = coord_df.set_index('option')
     return coord_df
 
 
@@ -543,12 +592,12 @@ def get_suite_id():
 def generate_demographics():
   
     coord_df=load_coordinator_df(characteristic=False, set_index=True)
-    site = str(coord_df.index[0])
-    latitude=coord_df.at[site,'lat']
-    longitude=coord_df.at[site,'lon']
-    population=coord_df.at[site,'pop']
-    prev0 = coord_df.at[site,'prev0']
-    BR = coord_df.at[site,'birth_rate']
+    site = coord_df.at['site','value']
+    latitude=coord_df.at['lat','value']
+    longitude=coord_df.at['lon','value']
+    population=coord_df.at['pop','value']
+    prev0 = coord_df.at['prev0','value']
+    BR = coord_df.at['birth_rate','value']
 
     new_nodes = [Demog.Node(lat=float(latitude),
                             lon=float(longitude),
@@ -569,7 +618,7 @@ def generate_demographics():
                                                      CrudeRate(float(BR)))
 
     print("Amending Birth Rate")
-    demog.SetBirthRate(CrudeRate(float(BR) * 1000))
+    demog.SetBirthRate(CrudeRate(float(BR) * int(population)))
     #print(demog.__dict__)
     with open(f"../simulation_inputs/demographics_files/{site}_demographics.json", "w") as outfile:
         json.dump(demog.to_dict(), outfile, indent=3, sort_keys=True)
@@ -585,10 +634,11 @@ def extract_climate(flatten_temp=True):
     from emodpy_malaria.weather import (generate_weather, weather_to_csv, WeatherVariable, 
                                         csv_to_weather)
     coord_df=load_coordinator_df(characteristic=False, set_index=True)
+    
     # ---| Request weather files |---
-    site = str(coord_df.index[0])
-    start_yr = coord_df.at[site,'climate_start_year']
-    length = coord_df.at[site,'climate_year_dur']
+    site = coord_df.at['site','value']
+    start_yr = int(coord_df.at['climate_start_year','value'])
+    length = int(coord_df.at['climate_year_dur','value'])
 
     extractdir = '../simulation_inputs/tmp/'
     outdir = os.path.join('../simulation_inputs/site_climate', site)
@@ -596,12 +646,17 @@ def extract_climate(flatten_temp=True):
     if not os.path.exists(extractdir):
         os.makedirs(extractdir)
     
+    site_climate=coord_df.transpose()
+    site_climate = site_climate[['lon','lat','nodes']]
+    print(site_climate.reset_index().drop(index=1))
+    site_climate.to_csv(f"{manifest.simulation_input_filepath}/{site}_climate.csv")
+
     weather_dir = extractdir
     startdate = start_yr * 1000 + 1
     enddate = (start_yr + length - 1) * 1000 + 365
     
     wr = generate_weather(platform="Calculon",
-                          site_file=manifest.simulation_coordinator_path,
+                          site_file=f"{manifest.simulation_input_filepath}/{site}_climate.csv",
                           start_date=startdate,
                           end_date=enddate,
                           node_column="nodes",

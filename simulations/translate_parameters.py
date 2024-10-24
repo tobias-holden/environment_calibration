@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 #### Read in Parameter Key
-key_path = 'test_parameter_key.csv'
+key_path = 'parameter_key.csv'
 parameter_key = pd.read_csv(key_path)
 
 #### Define Parameter Translator
@@ -114,7 +114,7 @@ if __name__ == '__main__':
     size = 10
     #initial_samples = get_initial_samples(parameter_key, size)
     #print(initial_samples)
-    param_key=pd.read_csv("test_parameter_key.csv")
+    param_key=pd.read_csv("parameter_key.csv")
     x = [0,0.01,0.05,0.1,0.2,0.25,0.5,0.75,0.9,1.0]
     for i in range(len(x)):
         param_guess=[x[i]]*4

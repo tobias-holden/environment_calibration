@@ -1,13 +1,18 @@
 import argparse
 import os
-
+import sys
 from idmtools.analysis.analyze_manager import AnalyzeManager
 from idmtools.core import ItemType
-
+sys.path.append("../")
+import manifest
+from helpers import load_coordinator_df
+import pandas as pd
 from analyzers.analyzer_collection import (
     EventReporterAnalyzer,
     MonthlyPfPRAnalyzer,
+    MonthlyIncidenceAnalyzer,
     AnnualPfPRAnalyzer,
+    AnnualIncidenceAnalyzer,
     InsetChartAnalyzer,
     EventReporterSummaryAnalyzer,
     NodeDemographicsAnalyzer,
@@ -22,51 +27,67 @@ def parse_args():
     return parser.parse_args()
 
 
-def analyze_experiment(platform, expid, wdir, report_start_day, simulation_duration):
+def analyze_experiment(platform, expid, wdir):
     if not os.path.exists(wdir):
         os.makedirs(wdir)
-
+    coord_df = load_coordinator_df()
+    sim_start_year = int(coord_df.at['simulation_start_year','value'])
+    
     analyzers = []
     # custom analyzers
     sweep_variables = ['Run_Number', 'Sample_ID']
-    #it would be useful to check to make sure that the sweep_variables selected are the only ones necessary.
-    #additionally, I would check to make sure that insetchartanalyzer doesn't need channels defined
-
-    # analyzers.append(EventReporterSummaryAnalyzer(sweep_variables=sweep_variables,
-    #                                              working_dir=wdir, 
-    #                                              time_cutoff=0,
-    #                                              event_list=["Received_Treatment", "Bednet_Using","Bednet_Got_New_One","Bednet_Discarded", "Received_SMC"],
-    #                                              output_filename="event_counts"))
-    # analyzers.append(NodeDemographicsAnalyzer(sweep_variables=sweep_variables,
-    #                                           working_dir=wdir,
-    #                                           output_filename="age_population",
-    #                                           time_cutoff=0))
-
-    analyzers.append(InsetChartAnalyzer(sweep_variables=sweep_variables,
-                                       working_dir=wdir,
-                                       start_day=int(report_start_day/365),
-                                       channels=["PCR Parasite Prevalence", "Air Temperature","Daily EIR"]))
-
+    
+    if coord_df.at['prevalence_comparison','value']:
+        prevalence_df = pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                                    coord_df.at['prevalence_comparison_reference','value']))
+        prevalence_start = int(prevalence_df['year'].min()) - sim_start_year
+        prevalence_end = int(prevalence_df['year'].max()) - sim_start_year
+        if(coord_df.at['prevalence_comparison_diagnostic','value']=="PCR"):
+            print("pass")
+            analyzers.append(InsetChartAnalyzer(sweep_variables=sweep_variables,
+                                                working_dir=wdir,
+                                                start_day=prevalence_start*365,
+                                                end_day = 365+prevalence_end*365,
+                                                channels=["PCR Parasite Prevalence","Daily EIR"]))
+        if coord_df.at['prevalence_comparison_diagnostic','value']=="Microscopy":
+            if coord_df.at['prevalence_comparison_frequency','value']=="monthly":
+                print(f"Prevalence: {prevalence_start} to {prevalence_end}")
+                analyzers.append(MonthlyPfPRAnalyzer(sweep_variables=sweep_variables,
+                                                     working_dir=wdir,
+                                                     start_year=prevalence_start,
+                                                     end_year=prevalence_end))
+            if coord_df.at['prevalence_comparison_frequency','value']=="annual":
+                analyzers.append(AnnualPfPRAnalyzer(sweep_variables=sweep_variables,
+                                                    working_dir=wdir,
+                                                    start_year=prevalence_start,
+                                                    end_year=prevalence_end))
+    # Don't change these - used for fitting #
+    if coord_df.at['incidence_comparison','value']:
+        incidence_df = pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                                    coord_df.at['incidence_comparison_reference','value']))
+        incidence_start = int(incidence_df['year'].min())
+        incidence_end = int(incidence_df['year'].max())
+        if(coord_df.at['incidence_comparison_frequency','value']=="monthly"):
+                print("pass")
+                analyzers.append(MonthlyIncidenceAnalyzer(sweep_variables=sweep_variables,
+                                                         working_dir=wdir,
+                                                         start_year=incidence_start,
+                                                         end_year=incidence_end+1))
+        if(coord_df.at['incidence_comparison_frequency','value']=="annual"):        
+                analyzers.append(AnnualIncidenceAnalyzer(sweep_variables=sweep_variables,
+                                                         working_dir=wdir,
+                                                         start_year=incidence_start,
+                                                         end_year=incidence_end+1))                                    
+    # analyzers.append(EventReporterAnalyzer(sweep_variables=sweep_variables,
+    #                                        working_dir=wdir,
+    #                                        time_cutoff=int(report_start_day),
+    #                                        event_list=["Received_Treatment"],
+    #                                        output_filename="events"))
     # analyzers.append(VectorStatsAnalyzer(sweep_variables=sweep_variables,
     #                                      working_dir=wdir,
     #                                      start_time=int(report_start_day/365),
     #                                      end_time=int(simulation_duration/365),
     #                                      ))
-
-    # Don't change these - used for fitting #
-    analyzers.append(MonthlyPfPRAnalyzer(sweep_variables=sweep_variables,
-                                        working_dir=wdir,
-                                        start_year=int(report_start_day/365),
-                                        end_year=int(simulation_duration/365)))
-    analyzers.append(AnnualPfPRAnalyzer(sweep_variables=sweep_variables,
-                                        working_dir=wdir,
-                                        start_year=int(report_start_day/365),
-                                        end_year=int(simulation_duration/365)))                                    
-    # analyzers.append(EventReporterAnalyzer(sweep_variables=sweep_variables,
-    #                                       working_dir=wdir,
-    #                                       time_cutoff=int(report_start_day),
-    #                                       event_list=["Received_Treatment"],
-    #                                       output_filename="events"))
     
     manager = AnalyzeManager(platform=platform,
                              configuration={},

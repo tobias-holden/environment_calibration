@@ -34,6 +34,7 @@ version_file = comps_id_folder / "version.txt"
 eradication_found = comps_id_folder / 'eradication_found'
 sif_id = comps_id_folder / 'sif.id'
 
+simulation_input_filepath = PROJECT_DIR / "simulation_inputs" #CURRENT_DIR / "output"
 simulation_output_filepath = PROJECT_DIR / "simulation_outputs" #CURRENT_DIR / "output"
 benchmark_simulation_filepath = PROJECT_DIR / "simulation_outputs" #CURRENT_DIR / "output"
 input_files_path = PROJECT_DIR / "simulation_inputs"
@@ -44,7 +45,7 @@ python_plot_output_filepath = PROJECT_DIR / "report" / "_plots_Python"
 
 
 # TODO: remove following lines
-simulation_coordinator_path = input_files_path / "simulation_coordinator.csv"
+simulation_coordinator_path = input_files_path / "new_sim_coordinator.csv"
 sweep_sim_coordinator_path = input_files_path / "sweep_sim_coordinator.csv"
 
 my_ep4_assets = None
@@ -59,5 +60,5 @@ node_group = 'idm_abcd'
 # This is the path to the sisf image used to run EMOD
 SIF_PATH = "--bind /projects /projects/b1139/images/dtk_run_rocky_py39.sif"
 
-job_directory = os.path.join('/projects/b1139/environmental_calib/experiments')
+job_directory = PROJECT_DIR / 'experiments'
 os.makedirs(job_directory, exist_ok=True)

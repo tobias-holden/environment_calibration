@@ -14,21 +14,25 @@ import matplotlib.dates as mdates
 import seaborn as sns
 from datetime import datetime
 from datetime import timedelta
+from helpers import load_coordinator_df
+
 sns.set_context("talk")
 sns.set_style("white")
 
 from compare_to_data.calculate_all_scores import  compute_all_scores, load_case_data
 
 def compute_scores_across_site(site):
-    
+    coord_df = load_coordinator_df()
     scores = compute_all_scores(site)
     #print(scores)
     weights = pd.read_csv(os.path.join(manifest.input_files_path,"my_weights.csv"),index_col=0)
     #print(weights)
-    scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
     scores['eir_score'] = [float(weights.at['eir_score','weight'])*val for val in scores['eir_score']]
-    scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']]
-    scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
+    if(coord_df.at['incidence_comparison','value']):
+        scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
+        scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']]
+    if(coord_df.at['prevalence_comparison','value']):
+        scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
     
     scores = scores.rename(columns={"Sample_ID":"param_set"})
     scores = pd.melt(scores, id_vars="param_set")
@@ -104,7 +108,7 @@ def save_maxEIR(site="", wdir="./"):
 
 def save_AnnualIncidence(site="", wdir="./",agebin=5):
     ### Load analyzed monthly MalariaSummaryReport from simulation
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_annual.csv"))
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
     #print(sim_cases)
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
@@ -114,7 +118,8 @@ def save_AnnualIncidence(site="", wdir="./",agebin=5):
     ################################################
     # get average annual incidence by year (across months) and then across years
     print(sim_cases)
-    score2 = sim_cases.groupby(['Sample_ID','agebin'])['Inc'].agg(np.nanmean).reset_index()
+    score2 = sim_cases.groupby(['Sample_ID','agebin','Year'])['Inc'].agg(np.nansum).reset_index()
+    score2 = score2.groupby(['Sample_ID','agebin'])['Inc'].agg(np.nanmean).reset_index()
     sim_cases = sim_cases.rename(columns={'Sample_ID':'param_set'})
     best = pd.read_csv(f"{wdir}/emod.best.csv")
     best = best['param_set'][0]
@@ -140,7 +145,8 @@ def plot_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_file
     sim_df['year'] = sim_df['year'] + start_year 
     sim_df = sim_df[sim_df['month']<=12]
     
-    refpcr = pd.read_csv(os.path.join(manifest.PROJECT_DIR,"reference_datasets","pcr_prevalence_allAge.csv"))
+    refpcr = pd.read_csv(os.path.join(manifest.base_reference_filepath,
+                                      coord_df.at['prevalence_comparison_reference','value']))
     ref_date_format = '%m/%d/%Y'
     refpcr['month'] = np.nan
     refpcr['day'] = np.nan
@@ -167,49 +173,9 @@ def plot_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_file
     plt.ylabel("PCR Parasite Prevalence")
     plt.ylim(0, 1)
     plt.savefig(os.path.join(plt_dir,f"prevalence_{site}.png"))
-    
-#     sim_df = sim_df.groupby(['month','year'])['PCR Parasite Prevalence'].agg('mean').reset_index(name='PCR Parasite Prevalence') 
-#     
-#     plt.figure(2, figsize=(6, 6), dpi=300, tight_layout=True)
-#     #plt.scatter(refpcr['sim_day'], refpcr['pcr_prevalence'], label="Reference", c='k')
-#     plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", c='k')
-#     #plt.plot(sim_df['time'], sim_df['prevalence'], label='simulation')
-#     plt.plot(sim_df['date'], sim_df['PCR Parasite Prevalence'], label="simulation", marker='o')
-#     plt.xticks(rotation=60)
-#     plt.legend(loc='upper center', bbox_to_anchor=(0.5, 1.3), fontsize="10")
-#     plt.xlabel("Date")
-#     plt.ylabel("PCR Parasite Prevalence")
-#     plt.ylim(0,1)
-#     plt.savefig(os.path.join(plt_dir,f"prevalence_monthly_{site}.png"),bbox_inches='tight')
-# # 
-#     if param_sets_to_plot is None:
-#         param_sets_to_plot = list(set(scored["param_set"]))
-# 
-#     #todo Add error bars on data
-#     # combined_df["reference_std"] = np.sqrt(combined_df["reference"])
-#     scored["reference_std"] = np.sqrt(combined_df["ref_pop_size"]*combined_df["reference"])/combined_df["ref_pop_size"]
-# 
-#     plt.figure()
-#     plt.plot(combined_df["mean_age"], combined_df["reference"], label="reference", marker='o')
-#     for param_set, sdf in combined_df.groupby("param_set"):
-#         if param_set in param_sets_to_plot:
-#             plt.plot(sdf["mean_age"], sdf["simulation"], label=f"Param set {param_set}", marker='s')
-#     plt.xlabel("Age")
-#     plt.ylabel("Incidence per person per year")
-#     plt.title(site)
-#     plt.legend()
-#     plt.tight_layout()
-#     #plt.savefig(os.path.join(manifest.simulation_output_filepath, "_plots", f"incidence_{site}.png"))
-#     plt.savefig(os.path.join(plt_dir,f"incidence_{site}.png"))
 
 
-def plot_all_comparisons(param_sets_to_plot=None,plt_dir=os.path.join(manifest.simulation_output_filepath, "_plots")):
-    #plot_incidence_comparison_all_sites(param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir)
-    #plot_prevalence(param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir)
-    #plot_density_comparison_all_sites(param_sets_to_plot=param_sets_to_plot,plt_dir=plt_dir)
-    # plot_infectiousness_comparison_all_sites(param_sets_to_plot=param_sets_to_plot) #fixme Not implemented yet
-    return 
-   
+
 if __name__ == "__main__":
 
     workdir="/projects/b1139/environmental_calibration/simulations/output/241007_test2/"
