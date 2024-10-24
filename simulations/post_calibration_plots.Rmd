@@ -13,11 +13,11 @@ library(patchwork)
 library(glue)
 
 # Experiment name
-exp <- "241013_20_max_infections"
+exp <- "test_repo3"
 # Number of training batches
-training_batches <- 5
+training_batches <- 1
 # Batch size
-batch_size <- 200
+batch_size <- 10
 # Create folders to store post-calibration plots
 performance_folder<-paste("output",exp,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
@@ -87,17 +87,21 @@ batches <- tp %>% group_by(round) %>%
   mutate(size=cumsum(size))
 batches$round <- paste(as.numeric(batches$round)+1)
 
-scores <- read.csv(glue("simulations/output/{exp}/all_scores.csv"))
-scores <- scores[,colnames(scores)[which(!grepl("Unnamed",colnames(scores)))]]
+all_scores <- read.csv(glue("output/{exp}/all_scores.csv"))
+all_scores <- all_scores[,colnames(all_scores)[which(!grepl("Unnamed",colnames(all_scores)))]]
 
-scores %>% 
+all_scores %>% 
   left_join(batches %>% mutate(round=as.integer(round))) %>%
   rowwise() %>%
   mutate(nps=param_set+ifelse(is.na(size),0,size)) %>%
-  mutate(old_param_set=param_set,param_set=nps) -> scores
+  mutate(old_param_set=param_set,param_set=nps) -> all_scores
 
-scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> scores
+all_scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> all_scores
 
+
+all_scores %>% select(-size) -> all_scores
+
+all_scores %>% drop_na() -> scores
 
 scores %>% 
   ungroup() %>%
@@ -114,12 +118,11 @@ imps$param_set -> imps
 
 ```{r}
 ### Plot score convergence
-
 scores %>%
-  filter(eir_score==0) %>%
+  #filter(eir_score==0) %>%
   ggplot(aes(x=param_set,y=score)) +
   geom_point() + 
-  geom_point(data=.%>%filter(score==min(scores$score)),
+  geom_point(data=.%>%filter(score==min(scores$score,na.rm=T)),
              aes(color="best")) +
   theme_minimal(base_size=16) +
   labs(color=NULL) +
@@ -127,11 +130,11 @@ scores %>%
 ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),height = 8,width=8)
 
 scores %>%
-  select(param_set,shape_score,intensity_score,prevalence_score,eir_score,score) %>%
+  select(param_set,shape_score,intensity_score,prevalence_score,eir_score) %>%
   gather("score_type","value",-c("param_set")) %>%
   ggplot(aes(x=param_set,y=value)) +
   geom_point() +
-  geom_point(data=.%>%filter(param_set==scores$param_set[scores$score==min(scores$score)]),
+  geom_point(data=.%>%filter(param_set==scores$param_set[scores$score==min(scores$score,na.rm=T)]),
              aes(color="best")) +
   facet_wrap(~score_type,scales="free_y") +
   theme_minimal(base_size=16) +
@@ -145,23 +148,29 @@ tp %>%
   mutate(emod_value=gsub("\\)","",gsub("tensor\\(","",emod_value))) %>%
   mutate(emod_value=as.numeric(emod_value)) %>%
   mutate(emod_value=ifelse(transformation=="log",log10(emod_value),emod_value)) %>%
-  ggplot(aes(x=param_set+batch_size*as.numeric(round),y=emod_value)) +
-  facet_wrap(~ifelse(transformation=="log",paste("Log",parameter),parameter)) +
-  geom_point()+
+  mutate(param_set=param_set+batch_size*as.numeric(round))%>%
+  ggplot(aes(x=param_set,y=emod_value)) +
+  facet_wrap(~ifelse(transformation=="log",paste("Log",parameter),parameter))  +
+  geom_point(aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
   theme_minimal(base_size=16) +
-  labs(color=NULL) +
-  xlab("Parameter Set #") + ylab("EMOD Parameter Value")
+  labs(color=NULL,alpha="complete") +
+  xlab("Parameter Set #") + ylab("EMOD Parameter Value") +
+  scale_alpha_manual(values=c(0.5,1))
+
 ggsave(paste(parameters_folder,paste("emod_parameters.png",sep="_"),sep='/'),height = 8,width=8)
 
 tp %>%
   mutate(unit_value=gsub("\\)","",gsub("tensor\\(","",unit_value))) %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
-  ggplot(aes(x=param_set+batch_size*as.numeric(round),y=unit_value)) +
+  mutate(param_set=param_set+batch_size*as.numeric(round))%>%
+  ggplot(aes(x=param_set,y=unit_value)) +
   facet_wrap(~parameter) +
-  geom_point()+
+  geom_point(aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
   theme_minimal(base_size=16) +
-  labs(color=NULL) +
-  xlab("Parameter Set #") + ylab("Unit Parameter Value")
+  labs(color=NULL,alpha="complete") +
+  xlab("Parameter Set #") + ylab("Unit Parameter Value") +
+  scale_alpha_manual(values=c(0.5,1))
+
 ggsave(paste(parameters_folder,paste("unit_parameters.png",sep="_"),sep='/'),height = 8,width=8)
 
 ```

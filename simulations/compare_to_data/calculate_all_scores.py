@@ -153,7 +153,7 @@ def compare_annual_incidence(site,agebin):
     #print(sim_cases)
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
-    # filter to age 5+
+    # filter to age
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     ##### Score - Mean annual cases per person #####
     ################################################

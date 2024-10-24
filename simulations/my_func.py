@@ -33,8 +33,6 @@ def my_func(X,wdir):
             shutil.rmtree(os.path.join(manifest.simulation_output_filepath,my_site))
         submit_sim(site=my_site, nSims=n_sims, X=df)
       
-    #for my_site in sites:
-     #   run_analyzers(site=my_site)
   
     while True:
         outputs = []

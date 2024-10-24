@@ -11,15 +11,15 @@ from calibration_common.batch_generators.turbo_thompson_sampling import TurboTho
 from calibration_common.emulators.GP import ExactGP   
 from calibration_common.bo import BO 
 from my_func import my_func as myFunc 
-from compare_to_data.run_full_comparison import plot_prevalence,plot_incidence,compute_scores_across_site,save_maxEIR,save_AnnualIncidence 
+from compare_to_data.run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
 from clean_all import clean_analyzers, clean_logs
 from translate_parameters import translate_parameters
-
+from helpers import load_coordinator_df
 import manifest as manifest
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_repo"
+exp_label = "test_repo4"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -35,6 +35,9 @@ failure_limit = int(calib_coord.at[Site, 'failure_limit'])
 success_limit = int(calib_coord.at[Site,'success_limit'])
 
 param_key=pd.read_csv("parameter_key.csv")
+
+coord_df=load_coordinator_df()
+incidence_agebin=coord_df.at['incidence_comparison_agebin','value']
 
 # Define the Problem, it must be a functor
 class Problem:
@@ -92,12 +95,17 @@ class Problem:
             self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv")
             Y0['round'] = [self.n] * len(Y0)
             Y0.to_csv(f"{self.workdir}/all_scores.csv")
-            # mEIR = save_maxEIR(site=Site, wdir = f"{self.workdir}/LF_{self.n}")
-            # mEIR.to_csv(f"{self.workdir}/LF_{self.n}/EIR_range.csv")
-            # ACI = save_AnnualIncidence(site=Site, wdir =f"{self.workdir}/LF_{self.n}")
-            # ACI.to_csv(f"{self.workdir}/LF_{self.n}/ACI.csv")
-            # plot_prevalence(site=Site, plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
-            # plot_incidence(site=Site, plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+            mEIR = save_rangeEIR(site=Site, wdir = f"{self.workdir}/LF_{self.n}")
+            mEIR.to_csv(f"{self.workdir}/LF_{self.n}/EIR_range.csv")
+            ACI = save_AnnualIncidence(site=Site,agebin=incidence_agebin, 
+                                       wdir =f"{self.workdir}/LF_{self.n}")
+            ACI.to_csv(f"{self.workdir}/LF_{self.n}/ACI.csv")
+            plot_allAge_prevalence(site=Site, 
+                                   plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), 
+                                   wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+            plot_incidence(site=Site, agebin=incidence_agebin,
+                           plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), 
+                           wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
@@ -113,12 +121,17 @@ class Problem:
                 best_p = max(pset,key=pset.get)
                 self.best = translate_parameters(param_key,best_x,best_p)
                 self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv")
-                # mEIR = save_maxEIR(site=Site, wdir = f"{self.workdir}/LF_{self.n}")
-                # mEIR.to_csv(f"{self.workdir}/LF_{self.n}/EIR_range.csv")
-                # ACI = save_AnnualIncidence(site=Site, wdir =f"{self.workdir}/LF_{self.n}")
-                # ACI.to_csv(f"{self.workdir}/LF_{self.n}/ACI.csv")
-                # plot_prevalence(site=Site, plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
-                # plot_incidence(site=Site, plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+                mEIR = save_rangeEIR(site=Site, wdir = f"{self.workdir}/LF_{self.n}")
+                mEIR.to_csv(f"{self.workdir}/LF_{self.n}/EIR_range.csv")
+                ACI = save_AnnualIncidence(site=Site,agebin=incidence_agebin, 
+                                           wdir =f"{self.workdir}/LF_{self.n}")
+                ACI.to_csv(f"{self.workdir}/LF_{self.n}/ACI.csv")
+                plot_allAge_prevalence(site=Site, 
+                                       plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), 
+                                       wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
+                plot_incidence(site=Site, agebin=incidence_agebin,
+                               plt_dir=os.path.join(f"{self.workdir}/LF_{self.n}"), 
+                               wdir=os.path.join(f"{self.workdir}/LF_{self.n}"))
                 np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
                 np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
             Y0['round'] = [self.n] * len(Y0)

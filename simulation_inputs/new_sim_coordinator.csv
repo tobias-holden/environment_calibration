@@ -29,4 +29,5 @@ include_AnnualMalariaSummaryReport,TRUE,
 incidence_comparison,TRUE,
 incidence_comparison_reference,routine_incidence_by_district.csv,
 incidence_comparison_frequency,monthly,"""monthly"" or ""annual"""
+incidence_comparison_agebin,100,
 include_MonthlyMalariaSummaryReport,TRUE,

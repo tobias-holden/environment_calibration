@@ -34,62 +34,70 @@ def compute_scores_across_site(site):
     if(coord_df.at['prevalence_comparison','value']):
         scores['prevalence_score'] = [float(weights.at['prevalence_score','weight'])*val for val in scores['prevalence_score']]
     
+    scores['shape_score'] = scores['shape_score'].fillna(10)
+    scores['intensity_score'] = scores['intensity_score'].fillna(10)
+    scores['prevalence_score'] = scores['prevalence_score'].fillna(10)
+    scores['eir_score'] = scores['eir_score'].fillna(10)
+    
     scores = scores.rename(columns={"Sample_ID":"param_set"})
-    scores = pd.melt(scores, id_vars="param_set")
-    scores = scores.groupby("param_set")['value'].agg('sum').reset_index(name='score')
+    #scores = pd.melt(scores, id_vars="param_set")
+    #scores = scores.groupby("param_set")['value'].agg('sum').reset_index(name='score')
     
     return scores
 
-def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='.',agebin=5,start_year=0):
-    
+def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='.',agebin=5):
+    coord_df = load_coordinator_df()
+    start_year = coord_df.at['simulation_start_year','value']
     best = pd.read_csv(os.path.join(wdir,"emod.best.csv"))
     best = best['param_set'][0]
     
+    #### Load incidence data
     case_df = load_case_data()
     # filter to DS_Name
-    case_df = case_df[case_df['DS_Name']==site]
-    # filter to age ov5
-    case_df = case_df[case_df['age']=='ov5']
+    case_df = case_df[case_df['site']==site]
+    # filter to age of interest
+    case_df = case_df[case_df['age']==agebin]
     # convert case_df 'year' to start at 0, like simulations
-    case_df['year'] = [(y - start_year) for y in case_df['year']]
+    case_df['year'] = [y - int(start_year) for y in case_df['year']]
+    print(case_df)
     # sum incidence across year    
-    case_df=case_df.merge(case_df.groupby('year')['repincd'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
+    case_df=case_df.merge(case_df.groupby('year')['case'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
     # normalize monthly incidence so each year sums to 1
-    case_df['norm_repincd'] = case_df.apply(lambda row: (row['repincd'] / row['max_incd']), axis=1)
+    case_df['norm_repincd'] = case_df.apply(lambda row: (row['case'] / row['max_incd']), axis=1)
     # get average normalized incidence per month
-    rcases = case_df.groupby(['month','DS_Name'])['norm_repincd'].agg(np.nanmean).reset_index()
+    rcases = case_df.groupby(['month','site'])['norm_repincd'].agg(np.nanmean).reset_index()
     
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
-    # filter to age 5+
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
+    # filter to age of interest
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     # get mean population and clinical cases by month, year, and Sample_ID
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
     sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
+    #print(sim_cases)
     # get mean normalized incidence by month/sample_id (across years)
-    sim_cases = sim_cases.groupby(['Sample_ID', 'month','agebin'])['norm_simincd'].agg(np.nanmean).reset_index()
+    sim_cases = sim_cases.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
     # merge simulated normalized monthly incidence with reference data on ['month']
-    score1 = sim_cases.merge(rcases, on ='month')
-    score1 = score1.dropna(subset=['norm_simincd']).reset_index()
-    print(score1)
-    print(best)
-    print(score1['Sample_ID'].unique())
-    score1 = score1[score1['Sample_ID']==best]
+    case_df = sim_cases.merge(rcases, on ='month')
+    case_df = case_df.dropna(subset=['norm_simincd']).reset_index()
+    case_df = case_df[case_df['Sample_ID']==best]
     #print(rcases1)
     #print(sim_cases1)
-    print(score1)
-    plt.figure(3, figsize=(6, 6), dpi=300, tight_layout=True)
-    plt.scatter(score1['month'], score1['norm_repincd'], label="Reference",color='k')
-    plt.plot(score1['month'],score1['norm_simincd'],label="Simulation")
+    plt.clf()
+    plt.figure(figsize=(6, 6), dpi=300, tight_layout=True)
+    plt.plot(case_df['month'],case_df['norm_simincd'],label="Simulation")
+    plt.scatter(case_df['month'], case_df['norm_repincd'], label="Reference",color='k')
     plt.legend()
     plt.xlabel("Month")
+    plt.xticks(np.arange(1, 13))
     plt.ylabel("Normalized Clinical Incidence")
-    #plt.ylim(0, 0.2)
+    plt.ylim(0, 1.1)
+    plt.xlim()
     
     plt.savefig(os.path.join(plt_dir,f"incidence_{site}.png"))
     
     
-def save_maxEIR(site="", wdir="./"):
+def save_rangeEIR(site="", wdir="./"):
     sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"InsetChart.csv"))
     sim_df = sim_df.rename(columns={'Sample_ID':'param_set'})
   
@@ -103,16 +111,16 @@ def save_maxEIR(site="", wdir="./"):
     last_year= max(sim_df['year'])
     sim_df = sim_df[sim_df['year'] >= last_year-10]
     sim_df = sim_df.groupby(['year','month','Run_Number','param_set']).agg(monthEIR=('Daily EIR', 'sum')).reset_index()
-    sim_df = sim_df.groupby('param_set').agg(maxEIR=('monthEIR','max')).reset_index()
+    sim_df = sim_df.groupby('param_set').agg(minEIR=('monthEIR','min'),maxEIR=('monthEIR','max')).reset_index()
     return sim_df
 
 def save_AnnualIncidence(site="", wdir="./",agebin=5):
     ### Load analyzed monthly MalariaSummaryReport from simulation
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"PfPR_ClinicalIncidence_monthly.csv"))
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
     #print(sim_cases)
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
     sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
-    # filter to age 5+
+    # filter to age
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     ##### Score - Mean annual cases per person #####
     ################################################
@@ -127,15 +135,17 @@ def save_AnnualIncidence(site="", wdir="./",agebin=5):
     
     return aci
 
-def plot_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='./',start_year=0):
+def plot_allAge_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_filepath,"_plots"),wdir='./'):
   
+    coord_df=load_coordinator_df()
+    start_year=int(coord_df.at['simulation_start_year','value'])
     sim_df = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"InsetChart.csv"))
     sim_df = sim_df.rename(columns={'Sample_ID':'param_set'})
   
     best = pd.read_csv(f"{wdir}/emod.best.csv")
     best = best['param_set'][0]
     sim_df = sim_df[sim_df['param_set']==best]
-    sim_df['date'] = [timedelta(days=t) + datetime.strptime("19600101", '%Y%m%d') for t in sim_df['time']]
+    sim_df['date'] = [timedelta(days=t) + datetime.strptime(f"{start_year}0101", '%Y%m%d') for t in sim_df['time']]
     sim_df2 = sim_df
 
     #print(sim_df)
@@ -147,45 +157,37 @@ def plot_prevalence(site="",plt_dir=os.path.join(manifest.simulation_output_file
     
     refpcr = pd.read_csv(os.path.join(manifest.base_reference_filepath,
                                       coord_df.at['prevalence_comparison_reference','value']))
-    ref_date_format = '%m/%d/%Y'
-    refpcr['month'] = np.nan
-    refpcr['day'] = np.nan
-    refpcr['year'] = np.nan
+    # ref_date_format = '%m/%d/%Y'
     for index, row in refpcr.iterrows():
-        #print(row['date'])
-        dayof = datetime.strptime(row['date'], ref_date_format)
-        refpcr['date'][index]= dayof
-        #print(dayof)
-        #print(dayof.month)
-        refpcr['month'][index] = dayof.month
-        #print(dayof.month)
-        refpcr['day'][index] = dayof.day
-        #print(dayof.month)
-        refpcr['year'][index] = dayof.year
-    # print(sim_df)
-    # print(refpcr)
-    #exit(1)
-    plt.figure(1, figsize=(6, 6), dpi=300, tight_layout=True)
-    plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference")
+        m=refpcr['month'][index]
+        d=refpcr['day'][index]
+        y=refpcr['year'][index]
+        refpcr['date'][index]= datetime.strptime(f"{y}{m}{d}", '%Y%m%d')
+        # refpcr['month'][index] = dayof.month
+        # refpcr['day'][index] = dayof.day
+        # refpcr['year'][index] = dayof.year
+    plt.clf()
+    plt.figure(figsize=(6, 6), dpi=300, tight_layout=True)
+    plt.scatter(refpcr['date'], refpcr['ref_prevalence'], label="Reference", color='k')
     plt.plot(sim_df['date'],sim_df['PCR Parasite Prevalence'], label="Simulation")
     plt.legend()
     plt.xlabel("Date")
     plt.ylabel("PCR Parasite Prevalence")
     plt.ylim(0, 1)
+    plt.gcf().autofmt_xdate()
     plt.savefig(os.path.join(plt_dir,f"prevalence_{site}.png"))
-
 
 
 if __name__ == "__main__":
 
-    workdir="/projects/b1139/environmental_calibration/simulations/output/241007_test2/"
+    workdir="/projects/b1139/environment_calibration/simulations/output/test_repo2/"
     site="Nanoro"
     n=0
     #print(compute_scores_across_site(site))
-    # mEIR = save_maxEIR(site=site, wdir = f"{workdir}/LF_{n}")
-    # mEIR.to_csv(f"{workdir}/LF_{n}/maxEIR.csv")
-    # ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}")
-    # ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
-    #plot_incidence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"),agebin=5)
-    plot_prevalence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
+    #EIR = save_rangeEIR(site=site, wdir = f"{workdir}/LF_{n}")
+    #EIR.to_csv(f"{workdir}/LF_{n}/EIR_range.csv")
+    #ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}",agebin=100)
+    #ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
+    ##plot_incidence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"),agebin=100)
+    plot_allAge_prevalence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
 
