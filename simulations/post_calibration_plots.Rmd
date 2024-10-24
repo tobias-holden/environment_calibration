@@ -13,7 +13,7 @@ library(patchwork)
 library(glue)
 
 # Experiment name
-exp <- "test_repo3"
+exp <- "test_repo4"
 # Number of training batches
 training_batches <- 1
 # Batch size
@@ -96,8 +96,11 @@ all_scores %>%
   mutate(nps=param_set+ifelse(is.na(size),0,size)) %>%
   mutate(old_param_set=param_set,param_set=nps) -> all_scores
 
+all_scores
+
 all_scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> all_scores
 
+all_scores
 
 all_scores %>% select(-size) -> all_scores
 
