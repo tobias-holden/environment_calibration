@@ -1,11 +1,11 @@
 Currently accepted input datasets:
 
-**All-Age Prevalence vs. Time:**
-| date		| sim_day | ref_prevalence | 
-|:-------:|:-------:|:--------------:|
-| | | |
+**All-Age PCR Prevalence vs. Time:**
+| site | year		| month   | day   | ref_prevalence | 
+|:----:|:-------:|:-------:|:-----:|:--------------:|
+| | | | | |
 
-**Routine Incidence by Month and Age:**
-| DS_Name		| Date | age | case |
-|:---------:|:---:|:---:|:-----:|
-|  |  |  |  |
+**Routine Clinical Incidence by Month and Age:**
+| site		| year | month | age | case |
+|:-------:|:----:|:-----:|:---:|:----:|
+|  |  |  |  | |
