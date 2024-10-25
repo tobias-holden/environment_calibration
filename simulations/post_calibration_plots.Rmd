@@ -13,7 +13,7 @@ library(patchwork)
 library(glue)
 
 # Experiment name
-exp <- "test_prod_shortsim"
+exp <- "test_prod_nanoro"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -154,8 +154,8 @@ scores %>%
   facet_wrap(~score_type,scales="free_y") +
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL) +
-  guides(shape="none")+
-  scale_shape_manual(values=c(19,21))+
+  guides(shape="none") +
+  scale_shape_manual(values=c(19,21)) +
   xlab("Parameter Set #") + ylab("Score")
 ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
 
@@ -170,7 +170,6 @@ scores %>%
            stat="identity",width=1) +
   labs(fill=NULL) +
   theme_minimal(base_size=16)
-  
 
 # Plot parameter convergence
 
@@ -229,11 +228,14 @@ tp %>%
 scores %>% left_join(TP) %>% 
   gather("score_type","score",c("eir_score","intensity_score","prevalence_score","shape_score")) %>%
   ggplot(aes(x=unit_value,y=score)) +
-  facet_wrap(score_type~parameter,scales="free_y")+
+  facet_wrap(score_type~parameter,scales="free_y") +
   geom_point(aes(color=param_set)) +
   scale_color_distiller(palette="Spectral") +
   theme_minimal(base_size=12) +
   theme(legend.position="bottom")
+
+scores %>% 
+  arrange(score)
 
 ```
 
