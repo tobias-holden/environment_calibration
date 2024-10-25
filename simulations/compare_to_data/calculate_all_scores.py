@@ -142,28 +142,28 @@ def compare_incidence_shape(site,agebin):
     return score1
   
 def compare_annual_incidence(site,agebin):
-    rcases = load_case_data(site)
-    rcases = rcases[rcases['site']==site]
-    rcases['cases']=rcases['case'] / 10000
-    rcases = rcases.groupby(['age','year'])[['cases']].agg(np.nansum).reset_index()
-    target=rcases[rcases['age']==agebin]
-    target=target['cases'].mean()
-    ### Load analyzed monthly MalariaSummaryReport from simulation
-    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
-    #print(sim_cases)
-    sim_cases['Inc'] = sim_cases['Cases'] #/ sim_cases['Pop']
-    sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nansum).reset_index()
-    # filter to age
-    sim_cases = sim_cases[sim_cases['agebin']==agebin]
     ##### Score - Mean annual cases per person #####
     ################################################
-    # get average annual incidence by year (across months) and then across years
-    #print(sim_cases)
+    
+    # Reference data
+    rcases = load_case_data(site)
+    rcases = rcases[rcases['site']==site]
+    rcases['incidence']=rcases['case'] / 10000      # assuming population of 10,0000
+    rcases = rcases.groupby(['age','year'])[['incidence']].agg(np.nansum).reset_index()
+    target=rcases[rcases['age']==agebin]
+    target=target['incidence'].mean()
+    
+    ### Load analyzed monthly MalariaSummaryReport from simulation
+    sim_cases = pd.read_csv(os.path.join(manifest.simulation_output_filepath,site,"ClinicalIncidence_monthly.csv"))
+    # filter to age
+    sim_cases = sim_cases[sim_cases['agebin']==agebin]
+    sim_cases['Inc'] = sim_cases['Cases'] #/ sim_cases['Pop']
+    # Average annual incidence in each year present
+    sim_cases = sim_cases.groupby(['Sample_ID', 'Year','agebin'])['Inc'].agg(np.nanmean).reset_index()
+    # Average annual incidence across all years
     score2 = sim_cases.groupby(['Sample_ID','agebin'])['Inc'].agg(np.nanmean).reset_index()
-    #print(score2)
-    # Compare to target
+    # Score e^(absolute difference) vs. target
     score2['intensity_score'] = score2.apply(lambda row: exp(abs(row['Inc']-target)/target), axis=1)
-    #print(score2)
     return score2
 
 def compute_all_scores(site,incidence_agebin=100):
