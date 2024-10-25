@@ -130,7 +130,6 @@ def compare_incidence_shape(site,agebin):
     score1 = sim_cases.merge(rcases, on ='month')
     score1 = score1.dropna(subset=['norm_simincd']).reset_index()
 
-    ### Load analyzed EventRecorder from simulation
     ll = compute_incidence_likelihood(score1)
     ll = ll.groupby(['Sample_ID'])['ll'].agg(np.nansum).reset_index()
     score1 = score1.drop(columns=['ll']).merge(ll,on='Sample_ID')

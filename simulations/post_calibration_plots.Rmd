@@ -138,14 +138,14 @@ scores %>%
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL) +
   guides(shape="none")+
-  scale_shape_manual(values=c(19,1))+
-  xlab("Parameter Set #") + ylab("Total Score")
+  scale_shape_manual(values=c(19,21))+
+  xlab("Parameter Set #") + ylab("Log10 Total Score")
 ggsave(paste(score_folder,paste("scores_total.png",sep="_"),sep='/'),height = 8,width=8)
 
 scores %>%
   select(param_set,shape_score,intensity_score,prevalence_score,eir_score) %>%
   gather("score_type","value",-c("param_set")) %>%
-  ggplot(aes(x=param_set,y=log10(value))) +
+  ggplot(aes(x=param_set,y=value)) +
   geom_point(data=.%>%filter(!(param_set %in% imps)))  +
   geom_point(data=.%>%filter(param_set %in% imps),
              aes(color="improvement",
@@ -155,7 +155,7 @@ scores %>%
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL) +
   guides(shape="none")+
-  scale_shape_manual(values=c(19,1))+
+  scale_shape_manual(values=c(19,21))+
   xlab("Parameter Set #") + ylab("Score")
 ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
 
@@ -182,12 +182,13 @@ tp %>%
   ggplot(aes(x=param_set,y=emod_value)) +
   facet_wrap(~ifelse(transformation=="log",paste("Log",parameter),parameter))  +
   geom_point(data=.%>%filter(!(param_set %in% imps)),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
-  geom_point(data=.%>%filter(param_set %in% imps),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
-                                                      color="improvement",shape=param_set==best$param_set)) +
+  geom_point(data=.%>%filter(param_set %in% imps),
+             aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
+                color="improvement",shape=param_set==best$param_set),fill="white") +
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL,alpha=NULL) +
-  guides(shape="none")+
-  scale_shape_manual(values=c(19,1))+
+  guides(shape="none",alpha="none")+
+  scale_shape_manual(values=c(19,21))+
   xlab("Parameter Set #") + ylab("EMOD Parameter Value") +
   scale_alpha_manual(values=c(0.5,1))
 
@@ -200,16 +201,39 @@ tp %>%
   ggplot(aes(x=param_set,y=unit_value)) +
   facet_wrap(~parameter) +
   geom_point(data=.%>%filter(!(param_set %in% imps)),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)])) +
-  geom_point(data=.%>%filter(param_set %in% imps),aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
-                                                      color="improvement",shape=param_set==best$param_set)) +
+  geom_point(data=.%>%filter(param_set %in% imps),
+             aes(alpha=param_set %in% all_scores$param_set[complete.cases(all_scores)],
+                 color="improvement",shape=param_set==best$param_set),
+             fill="white") +
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL,alpha=NULL) +
-  guides(shape="none")+
-  scale_shape_manual(values=c(19,1))+
+  guides(shape="none",alpha="none")+
+  scale_shape_manual(values=c(19,21))+
   xlab("Parameter Set #") + ylab("Unit Parameter Value") +
   scale_alpha_manual(values=c(0.5,1))
 
 ggsave(paste(parameters_folder,paste("unit_parameters.png",sep="_"),sep='/'),height = 8,width=8)
+
+
+# scores vs. parameters
+
+tp %>%
+  mutate(emod_value=gsub("\\)","",gsub("tensor\\(","",emod_value))) %>%
+  mutate(emod_value=as.numeric(emod_value)) %>%
+  mutate(emod_value=ifelse(transformation=="log",log10(emod_value),emod_value)) %>%
+  mutate(unit_value=gsub("\\)","",gsub("tensor\\(","",unit_value))) %>%
+  mutate(unit_value=as.numeric(unit_value)) %>%
+  mutate(param_set=param_set+batch_size*as.numeric(round)) %>%
+  select(param_set,parameter,transformation,emod_value,unit_value) -> TP
+
+scores %>% left_join(TP) %>% 
+  gather("score_type","score",c("eir_score","intensity_score","prevalence_score","shape_score")) %>%
+  ggplot(aes(x=unit_value,y=score)) +
+  facet_wrap(score_type~parameter,scales="free_y")+
+  geom_point(aes(color=param_set)) +
+  scale_color_distiller(palette="Spectral") +
+  theme_minimal(base_size=12) +
+  theme(legend.position="bottom")
 
 ```
 
