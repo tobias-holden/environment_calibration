@@ -14,6 +14,22 @@ Status Summary
 
 ## Instructions
 
+Before following the steps below, please **fork** this repository and clone it to your local machine
+
+For Quest users: 
+
+``` bash
+#navigate to your home directory or desired project location (ex. /projects/b1139)
+cd ~
+
+# initialize git
+git init
+
+# clone repository
+git clone <ssh path to your fork of the repository>
+
+```
+
 <details>
 
 <summary>Step 1: Create Virtual Environment
