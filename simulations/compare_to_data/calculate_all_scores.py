@@ -26,16 +26,17 @@ coord_df = load_coordinator_df(characteristic=False, set_index=True)
 
 start_year = int(coord_df.at['simulation_start_year','value'])
 
-def load_case_data():
+def load_case_data(site):
     case_df= pd.read_csv(os.path.join(manifest.base_reference_filepath,
                                       coord_df.at['incidence_comparison_reference','value']))
+    case_df=case_df[case_df['site']==site]                  
     return(case_df)
 
 def load_prevalence_data(site):
     ### Load reference PCR prevalence data
     refpcr = pd.read_csv(os.path.join(manifest.base_reference_filepath,
                                       coord_df.at['prevalence_comparison_reference','value']))
-
+    refpcr = refpcr[refpcr['site']==site]
     return(refpcr)
 
 def prepare_inset_chart_data(site):
@@ -100,7 +101,7 @@ def compute_incidence_likelihood(combined_df):
 
 def compare_incidence_shape(site,agebin):
     #### Load incidence data
-    case_df = load_case_data()
+    case_df = load_case_data(site)
     # filter to DS_Name
     case_df = case_df[case_df['site']==site]
     # filter to age of interest
@@ -142,7 +143,7 @@ def compare_incidence_shape(site,agebin):
     return score1
   
 def compare_annual_incidence(site,agebin):
-    rcases = load_case_data()
+    rcases = load_case_data(site)
     rcases = rcases[rcases['site']==site]
     rcases['cases']=rcases['case'] / 10000
     rcases = rcases.groupby(['age','year'])[['cases']].agg(np.nansum).reset_index()

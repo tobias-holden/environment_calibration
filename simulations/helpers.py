@@ -437,23 +437,29 @@ def add_smc(camp,smc_df):
 
 
 def add_itns(camp,itn_df,itn_age,itn_season):
+    coord_df=load_coordinator_df(characteristic=False, set_index=True)
+    sim_start_yr = int(coord_df.at['simulation_start_year','value'])
     itn_seasonal_usage = {"Times": list(itn_season['season_time']),
                           "Values":list(itn_season['season_usage'])}
-    for year in itn_df['year']:                                                                                
-        sub_df = itn_df[itn_df['year']==year].reset_index()                                                    
+    for r, row in itn_df.iterrows():
+        itn_year = int(row['year'])
+        itn_month = int(row['month'])
+        itn_day = int(row['day'])
+        itn_start = itn_year-sim_start_yr
+        itn_start = itn_start*365 + day_of_year(itn_month,itn_day,itn_year)
         itn_discard_config = {"Expiration_Period_Distribution": "WEIBULL_DISTRIBUTION",                        
-                              "Expiration_Period_Kappa": float(sub_df['discard_k'][0]),                        
-                              "Expiration_Period_Lambda": float(sub_df['discard_l'][0])}                       
-        itn_age_year = itn_age[itn_age['year']==year]                                                          
-        itn_age_bins = itn_age_year['age']                                                                     
-        itn_age_usage = itn_age_year['age_usage']                                                              
+                              "Expiration_Period_Kappa": float(row['discard_k']),                        
+                              "Expiration_Period_Lambda": float(row['discard_l'])}                       
+        itn_age_year = itn_age[itn_age['year']==itn_year]                                                          
+        itn_age_bins = itn_age_year['age']                                                                
+        itn_age_usage =itn_age_year['age_usage']                                                            
         add_scheduled_usage_dependent_bednet(camp, intervention_name = "UsageDependentBednet",                   
-                                             start_day = int(sub_df['start_day'][0]),                      
-                                             demographic_coverage = float(sub_df['coverage'][0]),          
-                                                   killing_initial_effect = float(sub_df['kill_effect'][0]),    
-                                                   killing_decay_time_constant = int(sub_df['kill_decay'][0]),   
-                                                   blocking_initial_effect = float(sub_df['block_effect'][0]),   
-                                                   blocking_decay_time_constant=int(sub_df['block_decay'][0]),   
+                                             start_day = itn_start,                      
+                                             demographic_coverage = float(row['coverage']),          
+                                                   killing_initial_effect = float(row['kill_effect']),    
+                                                   killing_decay_time_constant = int(row['kill_decay']),   
+                                                   blocking_initial_effect = float(row['block_effect']),   
+                                                   blocking_decay_time_constant=int(row['block_decay']),   
                                              age_dependence = {"Times": list(itn_age_bins),                
                                                                "Values": list(itn_age_usage)},             
                                              seasonal_dependence = itn_seasonal_usage,                     

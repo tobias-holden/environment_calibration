@@ -36,7 +36,7 @@ def compute_scores_across_site(site):
     if(coord_df.at['incidence_comparison','value']):
         scores['shape_score'] = [float(weights.at['shape_score','weight'])*val for val in scores['shape_score']]
         scores['shape_score'] = scores['shape_score'].fillna(10)
-        scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']
+        scores['intensity_score'] = [float(weights.at['intensity_score','weight'])*val for val in scores['intensity_score']]
         scores['intensity_score'] = scores['intensity_score'].fillna(10)
     
     ### Add prevalence score ###
@@ -57,7 +57,7 @@ def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filep
     best = best['param_set'][0]
     
     #### Load incidence data
-    case_df = load_case_data()
+    case_df = load_case_data(site)
     # filter to DS_Name
     case_df = case_df[case_df['site']==site]
     # filter to age of interest
@@ -188,15 +188,13 @@ if __name__ == "__main__":
 
     workdir="/projects/b1139/environment_calibration/simulations/output/test_prod_no_interventions/"
     site="Nanoro"
-    n=0
     Y0=compute_scores_across_site(site)
     print(Y0)
     Y1 = pd.melt(Y0, id_vars="param_set")
     Y1 = Y1.groupby("param_set")['value'].agg('sum').reset_index(name='score')
-    EIR = save_rangeEIR(site=site, wdir = f"{workdir}/LF_{n}")
-    EIR.to_csv(f"{workdir}/LF_{n}/EIR_range.csv")
-    ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}",agebin=100)
-    ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
-    plot_incidence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"),agebin=100)
-    plot_allAge_prevalence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
+    # EIR.to_csv(f"{workdir}/LF_{n}/EIR_range.csv")
+    # ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}",agebin=100)
+    # ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
+    # plot_incidence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"),agebin=100)
+    # plot_allAge_prevalence(site=site, plt_dir=os.path.join(f"{workdir}/LF_{n}"), wdir=os.path.join(f"{workdir}/LF_{n}"))
 
