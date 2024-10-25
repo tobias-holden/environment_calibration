@@ -109,9 +109,9 @@ def compare_incidence_shape(site,agebin):
     # convert case_df 'year' to start at 0, like simulations
     case_df['year'] = [(y - start_year) for y in case_df['year']]
     print(case_df)
-    # sum incidence across year    
+    # find max incidence by year    
     case_df=case_df.merge(case_df.groupby('year')['case'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
-    # normalize monthly incidence so each year sums to 1
+    # normalize monthly incidence so each year maxes at 1
     case_df['norm_repincd'] = case_df.apply(lambda row: (row['case'] / row['max_incd']), axis=1)
     # get average normalized incidence per month
     rcases = case_df.groupby(['month','site'])['norm_repincd'].agg(np.nanmean).reset_index()
@@ -121,7 +121,7 @@ def compare_incidence_shape(site,agebin):
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     # get mean population and clinical cases by month, year, and Sample_ID
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
-    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
+    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID',"Year"],how='left').reset_index()
     sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
     #print(sim_cases)
     # get mean normalized incidence by month/sample_id (across years)

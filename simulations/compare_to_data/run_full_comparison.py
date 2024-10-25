@@ -77,7 +77,7 @@ def plot_incidence(site="",plt_dir=os.path.join(manifest.simulation_output_filep
     sim_cases = sim_cases[sim_cases['agebin']==agebin]
     # get mean population and clinical cases by month, year, and Sample_ID
     sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
-    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID'],how='left').reset_index()
+    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID',"Year"],how='left').reset_index()
     sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
     # get mean normalized incidence by month/sample_id (across years)
     sim_cases = sim_cases.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
@@ -186,12 +186,64 @@ def plot_allAge_prevalence(site="",plt_dir=os.path.join(manifest.simulation_outp
 
 if __name__ == "__main__":
 
-    workdir="/projects/b1139/environment_calibration/simulations/output/test_prod_no_interventions/"
+    workdir="/projects/b1139/environment_calibration/simulations/output/test_prod_Nanoro/LF_2/"
+    plt_dir=workdir
     site="Nanoro"
-    Y0=compute_scores_across_site(site)
-    print(Y0)
-    Y1 = pd.melt(Y0, id_vars="param_set")
-    Y1 = Y1.groupby("param_set")['value'].agg('sum').reset_index(name='score')
+    coord_df = load_coordinator_df()
+    start_year = coord_df.at['simulation_start_year','value']
+    best = pd.read_csv(os.path.join(workdir,"emod.best.csv"))
+    best = best['param_set'][0]
+    agebin=100
+    #### Load incidence data
+    case_df = load_case_data(site)
+    # filter to DS_Name
+    case_df = case_df[case_df['site']==site]
+    # filter to age of interest
+    case_df = case_df[case_df['age']==agebin]
+    # convert case_df 'year' to start at 0, like simulations
+    case_df['year'] = [y - int(start_year) for y in case_df['year']]
+    # sum incidence across year    
+    case_df=case_df.merge(case_df.groupby('year')['case'].agg(np.nanmax).reset_index(name='max_incd'), on='year',how='left')
+    # normalize monthly incidence so each year sums to 1
+    case_df['norm_repincd'] = case_df.apply(lambda row: (row['case'] / row['max_incd']), axis=1)
+    # get average normalized incidence per month
+    rcases = case_df.groupby(['month','site'])['norm_repincd'].agg(np.nanmean).reset_index()
+    
+    ## Read in simulation output file
+    sim_cases = pd.read_csv(os.path.join(workdir,"SO",site,"ClinicalIncidence_monthly.csv"))
+    # filter to age of interest
+    sim_cases = sim_cases[sim_cases['agebin']==agebin]
+    # get mean population and clinical cases by month, year, and Sample_ID
+    sim_cases['Inc'] = sim_cases['Cases'] / sim_cases['Pop']
+    sim_cases=sim_cases.merge(sim_cases.groupby(['Sample_ID','Year'])['Inc'].agg(np.nanmax).reset_index(name='max_simincd'), on=['Sample_ID',"Year"],how='left').reset_index()
+    sim_cases['norm_simincd'] = sim_cases.apply(lambda row: (row['Inc'] / row['max_simincd']), axis=1)
+    # get mean normalized incidence by month/sample_id (across years)
+    sim_cases = sim_cases.groupby(['Sample_ID', 'month'])['norm_simincd'].agg(np.nanmean).reset_index()
+
+    # merge simulated normalized monthly incidence with reference data on ['month']
+    case_df = sim_cases.merge(rcases, on ='month')
+    case_df = case_df.dropna(subset=['norm_simincd']).reset_index()
+    case_df = case_df[case_df['Sample_ID']==best]
+    
+    #print(rcases1)
+    #print(sim_cases1)
+    plt.figure(figsize=(6, 6), dpi=300, tight_layout=True)        
+    plt.scatter(case_df['month'], case_df['norm_repincd'], label="Reference",color='k')
+    plt.plot(case_df['month'],case_df['norm_simincd'],label="Simulation")
+    plt.legend()
+    plt.xlabel("Month")
+    plt.xticks(np.arange(1, 13))
+    plt.ylabel("Normalized Clinical Incidence")
+    plt.ylim(0, 1.1)
+    plt.xlim()
+    plt.show()
+    plt.savefig(os.path.join(plt_dir,f"incidence_{site}.png"))
+    plt.clf()
+    
+    # Y0=compute_scores_across_site(site)
+    # print(Y0)
+    # Y1 = pd.melt(Y0, id_vars="param_set")
+    # Y1 = Y1.groupby("param_set")['value'].agg('sum').reset_index(name='score')
     # EIR.to_csv(f"{workdir}/LF_{n}/EIR_range.csv")
     # ACI = save_AnnualIncidence(site=site, wdir =f"{workdir}/LF_{n}",agebin=100)
     # ACI.to_csv(f"{workdir}/LF_{n}/ACI.csv")
