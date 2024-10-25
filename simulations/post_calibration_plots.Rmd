@@ -12,23 +12,23 @@ library(ggforce)
 library(patchwork)
 library(glue)
 
-# Experiment name
-exp <- "test_prod_nanoro"
+# exp_labeleriment name
+exp_label <- "test_prod_nanoro"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
 # Batch size
 batch_size <- coord_df$batch_size
 # Create folders to store post-calibration plots
-performance_folder<-paste("output",exp,"performance",sep='/')
+performance_folder<-paste("output",exp_label,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
-score_folder<-paste("output",exp,"performance/scores",sep='/')
+score_folder<-paste("output",exp_label,"performance/scores",sep='/')
 if(!(dir.exists(score_folder))){dir.create(score_folder)}
-parameters_folder<-paste("output",exp,"performance/parameters",sep='/')
+parameters_folder<-paste("output",exp_label,"performance/parameters",sep='/')
 if(!(dir.exists(parameters_folder))){dir.create(parameters_folder)}
-#GP_folder<-paste("output",exp,"performance/GP",sep='/')
+#GP_folder<-paste("output",exp_label,"performance/GP",sep='/')
 #if(!(dir.exists(GP_folder))){dir.create(GP_folder)}
-objectives_folder<-paste("output",exp,"objectives",sep='/')
+objectives_folder<-paste("output",exp_label,"objectives",sep='/')
 if(!(dir.exists(objectives_folder))){dir.create(objectives_folder)}
 
 my_pal <- c("gray",
@@ -64,7 +64,7 @@ pal_df$id <- 0:(nrow(pal_df)-1)
 # load data
 ```{r}
 
-folders <- list.dirs(paste("./output",exp,sep='/'))
+folders <- list.dirs(paste("./output",exp_label,sep='/'))
 folders <- folders[grepl(pattern = "LF",folders)]
 folders <- folders[!grepl(pattern="SO",folders)]
 
@@ -88,7 +88,7 @@ batches <- tp %>% group_by(round) %>%
   mutate(size=cumsum(size))
 batches$round <- paste(as.numeric(batches$round)+1)
 
-all_scores <- read.csv(glue("output/{exp}/all_scores.csv"))
+all_scores <- read.csv(glue("output/{exp_label}/all_scores.csv"))
 all_scores <- all_scores[,colnames(all_scores)[which(!grepl("Unnamed",colnames(all_scores)))]]
 
 all_scores %>% 

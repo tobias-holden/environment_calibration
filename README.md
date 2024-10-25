@@ -6,17 +6,21 @@ Our goal is to adapt a botorch multi-objective Bayesian optimization workflow to
 
 Status Summary
 
-|       | Tested | *Not Yet Tested*     |
-|:-----:|:-------|:---------------------|
-| Interventions | treatment-seeking, non-malaria fever treatment, SMC, bednets (season- and age-dependent) | IRS, Campaigns (MSAT/MDA), vaccDrugSMC |
-|    Vectors    | *arabiensis*, *gambiae*, *funestus*                                                      |                                        |
-|   Habitats    | constant, temporary rainfall, water vegetation                                           | linear spline                          |
+|               | Tested                                                                    | *Not Yet Tested*                          |
+|:-------------:|:--------------------------------------------------------------------------|:------------------------------------------|
+| Interventions | treatment-seeking<br>non-malaria fever treatment<br>SMC(drug)<br>bednets (season- and age-dependent) | IRS<br>Campaigns (MSAT/MDA)<br>SMC (vaccDrug) |
+|    Vectors    | *arabiensis*<br>*gambiae*<br>*funestus*                                                      |                                        |
+|   Habitats    | constant<br>temporary rainfall<br>water vegetation                                           | linear spline                          |
 
 ## Instructions
 
-### 1 Create Virtual Environment
+<details>
 
-To start, create a virtual environment containing botorch, idmtools, emodpy, and other required packages.
+<summary>Step 1: Create Virtual Environment
+
+</summary>
+
+<br> To start, create a virtual environment containing botorch, idmtools, emodpy, and other required packages.
 
 For Quest users, you can build an environment based off of the existing \<emodpy-torch\> environment.
 
@@ -42,46 +46,72 @@ Because some of the packages in the `emodpy-torch` environment were installed us
 # Activate your new virtual environment source activate <path/to/env>/<YOUR_ENVIRONMENT> # ex. /projects/b1139/environments/my_environment  # pip install from requirements.txt pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
 ```
 
-### 2. Customize simulation inputs
+</details>
 
-1.  Describe reference site
-    -   **simulation_coordinator.csv**
-    -   Related .csv files for *vectors* and *interventions*
 
-|               option                |                    value                    |              description               |
-|:------------------:|:-----------------:|:-------------------------------:|
-|                node                 |                      1                      |                                        |
-|                site                 |                   Nanoro                    |                                        |
-|                 lat                 |                    12.68                    |                                        |
-|                 lon                 |                    -2.19                    |                                        |
-|         climate_start_year          |                    2010                     |                                        |
-|          climate_year_dur           |                     10                      |                                        |
-|                 pop                 |                    1000                     |                                        |
-|             birth_rate              |                     38                      |                                        |
-|                prev0                |                     0.2                     |                                        |
-|            include_site             |                    TRUE                     |                                        |
-|           run_script_name           |                 run_sims.py                 |                                        |
-|                nSims                |                      1                      |                                        |
-|        simulation_start_year        |                    2000                     |                                        |
-|          simulation_years           |                     20                      |                                        |
-|        demographics_filepath        | demographics_files/Nanoro_demographics.json |                                        |
-|            NMF_filepath             |  nonmalarial_fevers/nmf_rates_generic.csv   |        blank if not applicable         |
-|             CM_filepath             |        cm/Nanoro_case_management.csv        |        blank if not applicable         |
-|            SMC_filepath             |                                             |        blank if not applicable         |
-|            ITN_filepath             |             itn/Nanoro_ITN.csv              |        blank if not applicable         |
-|          ITN_age_filepath           |               itn/ITN_age.csv               |        blank if not applicable         |
-|         ITN_season_filepath         |             itn/ITN_season.csv              |        blank if not applicable         |
-|           vector_filepath           |             vectors/vectors.csv             |                                        |
-|        prevalence_comparison        |                    TRUE                     |                                        |
-|   prevalence_comparison_reference   |          pcr_prevalence_AllAge.csv          |                                        |
-|   prevalence_comparison_frequency   |                   monthly                   |      """monthly"" or ""annual"""       |
-|  prevalence_comparison_diagnostic   |                     PCR                     | """PCR"" or ""Microscopy"" or ""RDT""" |
-| include_AnnualMalariaSummaryReport  |                    TRUE                     |                                        |
-|        incidence_comparison         |                    TRUE                     |                                        |
-|   incidence_comparison_reference    |      routine_incidence_by_district.csv      |                                        |
-|   incidence_comparison_frequency    |                   monthly                   |      """monthly"" or ""annual"""       |
-|     incidence_comparison_agebin     |                     100                     |                                        |
-| include_MonthlyMalariaSummaryReport |                    TRUE                     |                                        |
+<details>
+
+<summary>Step 2: Customize site-specific inputs
+
+</summary>
+
+<br>
+
+1.  Describe reference site simulation options
+
+    -   Example **simulation_coordinator.csv**
+        
+        |option|value|description|
+        |----|---|---------|
+        |site|Nanoro|site name|
+        |lat|12.68|site latitude|
+        |lon|-2.19|site longitude|
+        |climate_start_year|2010|First year of climate data to request from ERA5|
+        |climate_year_dur|10|# years of climate data to pull from ERA5|
+        |pop|1000|simulated population|
+        |birth_rate|38|Crude birth rate for site|
+        |prev0|0.2|Initial prevalence to supply to demographics file|
+        |nSims|1|# of random seeds to simulate|
+        |simulation_start_year|1960|Day 0 of simulation is Jan 1 of this year|
+        |simulation_years|60|# of years to simulate (Jan 1- Dec 31)|
+        |demographics_filepath|demographics_files/Nanoro_demographics.json|<site>_demographics.json if using create_files.py|
+        |NMF_filepath|nonmalarial_fevers/nmf_rates_generic.csv|blank if not applicable|
+        |CM_filepath|cm/Nanoro_case_management.csv|blank if not applicable|
+        |SMC_filepath||"file describing SMC campaigns| if any"|
+        |ITN_filepath|itn/Nanoro_ITN.csv|"file describing ITN distribution campaigns| if any"|
+        |ITN_age_filepath|itn/ITN_age.csv|"file describing age-based patterns in ITN usage| if any"|
+        |ITN_season_filepath|itn/ITN_season.csv|"file describing seasonal patterns in ITN usage| ifa ny"|
+        |vector_filepath|vectors/vectors.csv|file describing mix of vector species and their ecology|
+        |prevalence_comparison|TRUE|include a measure of prevalence in scoring?|
+        |prevalence_comparison_reference|pcr_prevalence_AllAge.csv|reference dataset for prevalence|
+        |prevalence_comparison_frequency|monthly|"""monthly"" or ""annual"" (not tested)"|
+        |prevalence_comparison_diagnostic|PCR|"""PCR"" or ""Microscopy"" or ""RDT"""|
+        |incidence_comparison|TRUE|include a measure of clinical incidence in scoring?|
+        |incidence_comparison_reference|routine_incidence_by_district.csv|reference dataset for incidence|
+        |incidence_comparison_frequency|monthly|"""monthly"" or ""annual"""|
+        |incidence_comparison_agebin|100|agebin (within incidence_comparison_reference) to use for comparison|
+
+    -   Related .csv files for *vectors* and *interventions*  
+        - Example: vectors/vectors.csv  
+        
+          |species|fraction|anthropophily|indoor_feeding|constant|temp_rain|water_veg|
+          |:-----:|:------:|:-----------:|:------------:|:------:|:-------:|:-------:|
+          |gambiae|0.9|0.74|0.9|1|1|0|
+          |funestus|0.05|0.5|0.86|1|0|1|
+          |arabiensis|0.05|0.88|0.5|1|1|0|
+        - Example: interventions/cm/case_management.csv
+        
+          |year|month|day|duration|trigger|age_min|age_max|coverage|rate|drug|
+          |:--:|:---:|:-:|:------:|:-----:|:-----:|:-----:|:------:|:--:|:--:|
+          |2005|1|1|1825|NewClinicalCase|0|5|0.153903191|0.3|AL|
+          |2005|1|1|1825|NewClinicalCase|5|15|0.092341914|0.3|AL|
+          |2005|1|1|1825|NewClinicalCase|15|115|0.061561276|0.3|AL|
+          |2005|1|1|1825|NewSevereCase|0|115|0.6|0.5|AL|
+          |2010|1|1|365|NewClinicalCase|0|5|0.153903191|0.3|AL|
+          |2010|1|1|365|NewClinicalCase|5|15|0.092341914|0.3|AL|
+          |2010|1|1|365|NewClinicalCase|15|115|0.061561276|0.3|AL|
+          |2010|1|1|365|NewSevereCase|0|115|0.6|0.5|AL|
+        
 
 2.  run **create_files.py** to generate climate and demographics files.
 
@@ -92,9 +122,20 @@ Because some of the packages in the `emodpy-torch` environment were installed us
         -   supply the path to the desired demographics file inside simulation_coordinator.csv 'demographics_filepath' row
         -   copy climate files into folder site_climate/*site*/
 
-3.  Define input parameter sampling space
+</details>
 
-    -   **test_parameter_key.csv**
+
+<details>
+
+<summary> Step 3: Setup calibration algorithm specifications
+
+</summary>
+
+<br>
+
+1.  Define input parameter sampling space
+
+    -   Example **parameter_key.csv**
 
         |               parameter               | min | max | transformation |
         |:-------------------------------------:|:---:|:---:|:--------------:|
@@ -103,9 +144,9 @@ Because some of the packages in the `emodpy-torch` environment were installed us
         | Temporary Rainfall Habitat Multiplier | -4  |  4  |      log       |
         |  Water Vegetation Habitat Multiplier  | -4  |  4  |      log       |
 
-4.  Refine scoring system
+2.  Refine scoring system
 
-    -   **my_weights.csv**
+    -   Example **my_weights.csv**
 
         |    objective     | weight |                                     |
         |:----------------:|:------:|-------------------------------------|
@@ -114,18 +155,81 @@ Because some of the packages in the `emodpy-torch` environment were installed us
         | prevalence_score |  0.1   | *Monthly all-age prevalence*        |
         |    eir_score     |  10.0  | *EIR threshold*                     |
 
-5.  Set up calibration scheme
+3.  Set up calibration scheme
 
-    -   **calib_coordinator.csv**
+    -   Example **calib_coordinator.csv**
 
         | init_size | init_batches | batch_size | max_eval | failure_limit |
         |:---------:|:------------:|:----------:|:--------:|:-------------:|
         |   1000    |      1       |    200     |   5000   |       2       |
+        
+</details>
 
-6.  edit **run_calib.py** with updated experiment name
+<details>
 
-7.  run **`sbatch sbatch_run_calib.sh`**
+<summary> Step 4: Run calibration loop
 
-8.  run **post_calibration_plots.Rmd** to generate additional plots *(optional)*
+</summary>
 
-## Methods
+<br>
+
+1.  edit **run_calib.py** with updated experiment name
+
+2.  run **`sbatch sbatch_run_calib.sh`**
+
+</details>
+
+<details>
+
+<summary> Step 5: Analyze Output
+
+</summary>
+
+<br>
+
+The output files automatically created by the calibration loop are found in simulations/output/`exp_label`:  
+
+Output from each round of calibration 0-`n_batches`:
+
+  -  LF_0/  
+      - translated_params.csv 
+      
+      *Files pertaining to the best-scoring parameter set*  
+      - emod.best.csv  
+      - emod.ymax.txt  
+      - EIR_range.csv  
+      - ACI.csv  
+      - incidence_`site`.png  
+      - prevalence_`site`.png  
+      
+      *A copy of the simulation_output folder containing analyzed outputs*
+      - SO/`site`/  
+          - InsetChart.csv  
+          - ...  
+          - finished.txt
+  -  ...  
+  -  LF_`n_batches`/
+      - translated_params.csv  
+      - SO/`site`/  
+          - InsetChart.csv
+          - ...
+          - finished.txt
+          
+For any round in which there was an improvement in overall score will contain all of the same files shown above for LF_0. If no improvment, only those shown for LF_<n_batches> above will appear.
+
+Additionally, plots of score and parameter convergence over time can be produced by running **post_calibration_plots.Rmd**, with the appropriate <exp_label>. 
+
+This produces new files inside simulations/output/<exp_label>:  
+    
+  - performance/  
+      - scores/
+          - scores_total.png  
+          - scores_by_objective.png  
+      - parameters/  
+          - unit_parameters.png  
+          - emod_parameters.png  
+
+
+</details>
+
+## Methods 
