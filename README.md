@@ -249,3 +249,79 @@ This produces new files inside simulations/output/<exp_label>:
 </details>
 
 ## Methods 
+
+### Parameter Space Translation
+
+The GP emulator emplyed by Botorch works with input values $x_{i}$ that are standardized to the unit space \[0,1\]. EMOD parameter values are translated from unit space according to **parameter_key.csv**
+
+If transform=="none" : $x_{emod} = min + x_{i}*(max-min)$
+
+- Temperature_Shift
+
+If transform=="log" : $x_{emod} = 10^{log10(min)+x_{i}*(log10(max)-log10(min))}$
+
+- CONSTANT_Multiplier
+- TEMPR_Multiplier
+- WATEV_Multiplier
+  
+### Scoring Simulations vs. Data
+
+Steps taken to report out, analyze, and compare simulation results to targets:
+
+#### (eir_score) Maximum and minimum monthly EIR
+
+- Report: InsetChart
+- Analyzer: InsetChartAnalyzer
+- Output: InsetChart.csv
+- Scoring: `check_EIR_threshold(site)`
+    -  Filter to last 10 years of simulation
+    -  Sum daily EIR to monthly EIR in each month-year-run
+    -  Average EIR in each month-year across runs
+    -  Calculate minimum and maximum EIR across all month-years
+    -  If any monthly EIR **>= 100** or any monthly EIR **== 0** : score = 1
+        - Else, score = 0  
+
+#### (shape_score) Normalized monthly clinical incidence in one age group
+
+- Report: MalariaSummaryReport
+- Analyzer: MonthlyIncidenceAnalyzer
+- Output: ClinicalIncidence_monthly.csv
+- Scoring: `compare_incidence_shape(site,agebin)`
+    - Filter to target agebin
+    - Find max incidence each year
+    - Normalize monthly incidence within each year (month / max)
+    - Average normalized incidence per month across years
+    - Score = $log(\frac{pop_{ref}!(pop_{sim}+1)!}{(pop_{ref}+pop_{sim}+1)!} * \frac{(cases_{ref}+(cases_{sim})!}{(cases_{ref}!cases_{sim}!} * \frac{(pop_{ref}-(cases_{ref})!(pop_{sim}-cases_{sim})!}{((pop_{ref}-(cases_{ref})+(pop_{sim}-cases_{sim}))!})$
+        - ${\color{red}\text{Currently hard-coded with presumed reference and simulation population of 1000}}$
+      
+#### (intensity_score) Average annual clinical incidence in one age group
+
+- Report: MalariaSummaryReport
+- Analyzer: MonthlyIncidenceAnalyzer
+- Output: ClinicalIncidence_monthly.csv
+- Scoring: `compare_annual_incidence(site,agebin)`
+    - Filter to target agebin
+    - Average annual incidence across months in each year
+    - Average annual incidence across years
+    - Score = $e^{((|incidence_{sim}-incidence_{ref}|) / incidence_{ref})}$ 
+
+#### (prevalence_score) All-age PCR prevalence by month and year
+
+- Report: InsetChart
+- Analyzer: InsetChart Analyzer
+- Output: InsetChart.csv
+- Scoring: `compare_all_age_PCR_prevalence(site)`
+    -  Average PCR Parasite Prevalence in each month-year across runs
+    -  Score each month-year as $\sqrt{|prev_{sim}-prev_{ref}|^2}$
+    -  Average score across month-years
+ 
+#### (prevalence_score) Microscopy prevalence by month and year in one age group
+${\color{red}\text{Not yet tested}}$
+- Report: MalariaSummaryReport
+- Analyzer: MonthlyPfPRAnalyzer
+- Output: PfPR_monthly.csv
+- Scoring: `compare_PfPR_prevalence(site,agebin)`
+    -  Filter to target agebin
+    -  Average PfPR in each month-year across runs
+    -  Score each month-year as $\sqrt{|pfpr_{sim}-pfpr_{ref}|^2}$
+    -  Average score across month-years
