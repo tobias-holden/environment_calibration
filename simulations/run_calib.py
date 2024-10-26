@@ -25,7 +25,7 @@ from environment_calibration_commonmy_func import my_func as myFunc
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_prod_Nanoro_short"
+exp_label = "test_tiny"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
