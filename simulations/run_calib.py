@@ -118,8 +118,8 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-            clean_analyzers()
-            clean_logs()
+            #clean_analyzers()
+            #clean_logs()
             
         else:
             os.makedirs(os.path.join(f"{self.workdir}/LF_{self.n}"),exist_ok=True)
@@ -150,15 +150,15 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-            clean_analyzers()
-            clean_logs()            
+            #clean_analyzers()
+            #clean_logs()            
         return torch.tensor(xc,dtype=torch.float64), torch.tensor(yc)
 
 problem = Problem(workdir=f"output/{exp_label}")
 
 # at beginning of workflow, cleanup all sbatch scripts for analysis
-clean_analyzers()
-clean_logs()
+#clean_analyzers()
+#clean_logs()
 # Create the GP model
 # See emulators/GP.py for a list of GP models
 # Or add your own, see: https://botorch.org/docs/models
