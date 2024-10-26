@@ -28,7 +28,7 @@ from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_sc
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_tiny"
+exp_label = "test_weights"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
