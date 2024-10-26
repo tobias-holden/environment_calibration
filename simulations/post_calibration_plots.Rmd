@@ -13,7 +13,7 @@ library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_prod_nanoro"
+exp_label <- "test_prod_Nanoro_short"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -100,8 +100,6 @@ all_scores %>%
 
 all_scores %>% mutate(score=sum(shape_score,intensity_score,prevalence_score,eir_score)) -> all_scores
 
-
-all_scores %>% arrange(score)
 
 all_scores %>% select(-size) -> all_scores
 
@@ -237,5 +235,21 @@ scores %>% left_join(TP) %>%
 scores %>% 
   arrange(score)
 
+```
+
+
+
+```{r}
+testing %>%
+  filter(Sample_ID==27)%>%
+  filter(agebin==100) %>%
+  mutate(inc=Cases/Pop) %>%
+  group_by(Year,agebin,Sample_ID) %>%  
+  mutate(max_inc=max(inc)) %>%
+  ungroup() %>% 
+  mutate(norm_inc=inc/max_inc) %>% 
+  group_by(month) %>% summarize(norm_inc=mean(norm_inc)) %>%
+  ggplot(aes(x=month,y=norm_inc)) +
+  geom_line()
 ```
 

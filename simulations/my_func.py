@@ -1,14 +1,14 @@
-from run_sims import submit_sim
-from get_eradication import get_eradication
-from compare_to_data.run_full_comparison import compute_scores_across_site
+from environment_calibration_common.run_sims import submit_sim
+from environment_calibration_common.get_eradication import get_eradication
+from environment_calibration_common.compare_to_data.run_full_comparison import compute_scores_across_site
 import manifest as manifest
 import os
 import shutil
 import time
-from helpers import load_coordinator_df
+from environment_calibration_common.helpers import load_coordinator_df
 import pandas as pd
 import numpy as np
-from translate_parameters import translate_parameters, get_initial_samples
+from environment_calibration_common.translate_parameters import translate_parameters, get_initial_samples
 
 
 def my_func(X,wdir):
