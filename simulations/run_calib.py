@@ -8,6 +8,8 @@ import pandas as pd
 import numpy as np
 import torch
 from gpytorch.constraints import GreaterThan
+# from local directory
+import manifest as manifest
 sys.path.append("../")
 # from calibration_common
 from calibration_common.batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
@@ -18,9 +20,8 @@ from environment_calibration_common.compare_to_data.run_full_comparison import p
 from environment_calibration_common.clean_all import clean_analyzers, clean_logs
 from environment_calibration_common.translate_parameters import translate_parameters
 from environment_calibration_common.helpers import load_coordinator_df
-# from local directory
-from my_func import my_func as myFunc 
-import manifest as manifest
+from environment_calibration_commonmy_func import my_func as myFunc 
+
 
 # Experiment details
 Site="Nanoro"
