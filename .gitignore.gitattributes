@@ -31,3 +31,5 @@ output/
 # COMPS_ID files
 COMPS_ID/*
 !COMPS_ID/version.txt
+
+README.html

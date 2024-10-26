@@ -88,7 +88,7 @@ batches <- tp %>% group_by(round) %>%
   mutate(size=cumsum(size))
 batches$round <- paste(as.numeric(batches$round)+1)
 
-all_scores <- read.csv(glue("output/{exp_label}/all_scores.csv"))
+all_scores <- read.csv(glue("output/{exp_label}/all_LL.csv"))
 all_scores <- all_scores[,colnames(all_scores)[which(!grepl("Unnamed",colnames(all_scores)))]]
 
 all_scores %>% 

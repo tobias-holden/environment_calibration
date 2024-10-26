@@ -15,6 +15,7 @@ sys.path.append("../calibration_common")
 from batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
 from emulators.GP import ExactGP   
 from bo import BO 
+from post_calibration_analysis import post_calibration_analysis
 # from environment_calibration_common
 sys.path.append("../environment_calibration_common")
 from clean_all import clean_analyzers, clean_logs, clean_COMPS_ID
@@ -103,7 +104,7 @@ class Problem:
             np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", self.ymax)
             self.best.to_csv(f"{self.workdir}/LF_{self.n}/emod.best.csv")
             Y0['round'] = [self.n] * len(Y0)
-            Y0.to_csv(f"{self.workdir}/all_scores.csv")
+            Y0.to_csv(f"{self.workdir}/all_LL.csv")
             mEIR = save_rangeEIR(site=Site, wdir = f"{self.workdir}/LF_{self.n}")
             mEIR.to_csv(f"{self.workdir}/LF_{self.n}/EIR_range.csv")
             ACI = save_AnnualIncidence(site=Site,agebin=incidence_agebin, 
@@ -144,9 +145,9 @@ class Problem:
                 np.savetxt(f"{self.workdir}/emod.ymax.txt", [self.ymax])
                 np.savetxt(f"{self.workdir}/LF_{self.n}/emod.ymax.txt", [self.ymax])
             Y0['round'] = [self.n] * len(Y0)
-            score_df=pd.read_csv(f"{self.workdir}/all_scores.csv")
+            score_df=pd.read_csv(f"{self.workdir}/all_LL.csv")
             score_df=pd.concat([score_df,Y0])
-            score_df.to_csv(f"{self.workdir}/all_scores.csv")
+            score_df.to_csv(f"{self.workdir}/all_LL.csv")
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
@@ -182,5 +183,16 @@ bo.initRandom(init_samples,n_batches = init_batches)
 
 # Run the optimization loop
 bo.run()
+
+##### Post-calibration steps
+
+# Run analysis
+
+post_calibration_analysis(experiment=exp_label,
+                          length_scales_by_objective=True,      # Fit single-task GP per site-metric
+                          length_scales_plot=True,              # Plot length-scales from calibration
+                          prediction_plot=True,                 # Plot predictions, starting @ exclude_count
+                          exclude_count=init_samples,
+                          timer_plot=True)                      # Plot emulator and acquisition timing
 
 
