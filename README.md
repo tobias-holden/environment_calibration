@@ -177,7 +177,7 @@ pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
 
 2.  Refine scoring system
 
-    -   Example **my_weights.csv**
+    -   Example **weights.csv**
 
         |    objective     | weight |                                     |
         |:----------------:|:------:|-------------------------------------|
@@ -343,7 +343,7 @@ ${\color{red}\text{Not yet tested}}$
 
 #### Weighting and Summary Score
 
-For each objective_score calculated, a weight is described in **my_weights.csv**:
+For each objective_score calculated, a weight is described in **weights.csv**:
 
 Final score = $-\Sigma (objective_score*weight)$
     - If any objective_score is missing or NA, a value of **10** is given post-weighting
