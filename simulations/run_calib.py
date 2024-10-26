@@ -1,3 +1,5 @@
+##### Import required packages #####
+# standard packages
 import os
 import sys
 import shutil
@@ -7,19 +9,22 @@ import numpy as np
 import torch
 from gpytorch.constraints import GreaterThan
 sys.path.append("../")
+# from calibration_common
 from calibration_common.batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
 from calibration_common.emulators.GP import ExactGP   
 from calibration_common.bo import BO 
+# from environment_calibration_common
+from environment_calibration_common.compare_to_data.run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
+from environment_calibration_common.clean_all import clean_analyzers, clean_logs
+from environment_calibration_common.translate_parameters import translate_parameters
+from environment_calibration_common.helpers import load_coordinator_df
+# from local directory
 from my_func import my_func as myFunc 
-from compare_to_data.run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
-from clean_all import clean_analyzers, clean_logs
-from translate_parameters import translate_parameters
-from helpers import load_coordinator_df
 import manifest as manifest
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_prod_Nanoro"
+exp_label = "test_prod_Nanoro_short"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -110,7 +115,7 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            #clean_logs()
+            clean_logs()
             
         else:
             os.makedirs(os.path.join(f"{self.workdir}/LF_{self.n}"),exist_ok=True)
@@ -142,14 +147,14 @@ class Problem:
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
             clean_analyzers()
-            #clean_logs()            
+            clean_logs()            
         return torch.tensor(xc,dtype=torch.float64), torch.tensor(yc)
 
 problem = Problem(workdir=f"output/{exp_label}")
 
 # at beginning of workflow, cleanup all sbatch scripts for analysis
 clean_analyzers()
-#clean_logs()
+clean_logs()
 # Create the GP model
 # See emulators/GP.py for a list of GP models
 # Or add your own, see: https://botorch.org/docs/models
