@@ -393,6 +393,5 @@ Initially the Trust Region spans the entire domain \[0,1\] of each input paramet
 
 2. candidate parameter sets with the top `batch_size` predicted scores are selected for the next round of simulation 
 
-
 The process of translating parameters -> running simulations -> scoring objectives -> fitting GP emulator -> Acquiring samples
 continues until `max_eval` simulations have been run *and* scored.
