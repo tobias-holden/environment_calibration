@@ -27,3 +27,7 @@ COMPS_log.log
 idmtool*.log
 log/
 output/
+
+# COMPS_ID files
+COMPS_ID/
+!COMPS_ID/version.txt

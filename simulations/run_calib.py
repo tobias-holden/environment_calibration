@@ -17,7 +17,7 @@ from emulators.GP import ExactGP
 from bo import BO 
 # from environment_calibration_common
 sys.path.append("../environment_calibration_common")
-from clean_all import clean_analyzers, clean_logs
+from clean_all import clean_analyzers, clean_logs, clean_COMPS_ID
 from translate_parameters import translate_parameters
 from helpers import load_coordinator_df
 from my_func import my_func as myFunc
@@ -118,9 +118,9 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-            #clean_analyzers()
+            clean_analyzers()
             #clean_logs()
-            
+            clean_COMPS_ID()
         else:
             os.makedirs(os.path.join(f"{self.workdir}/LF_{self.n}"),exist_ok=True)
             # Only create plots or update emod.best and emod.ymax if fit improves
@@ -150,15 +150,17 @@ class Problem:
             shutil.copytree(f"{manifest.simulation_output_filepath}",f"{self.workdir}/LF_{self.n}/SO")
             self.n += 1
             np.savetxt(f"{self.workdir}/emod.n.txt", [self.n])
-            #clean_analyzers()
-            #clean_logs()            
+            clean_analyzers()
+            #clean_logs()
+            clean_COMPS_ID()
         return torch.tensor(xc,dtype=torch.float64), torch.tensor(yc)
 
 problem = Problem(workdir=f"output/{exp_label}")
 
 # at beginning of workflow, cleanup all sbatch scripts for analysis
-#clean_analyzers()
-#clean_logs()
+clean_analyzers()
+
+
 # Create the GP model
 # See emulators/GP.py for a list of GP models
 # Or add your own, see: https://botorch.org/docs/models
@@ -176,7 +178,7 @@ bo = BO(problem=problem, model=model, batch_generator=tts, checkpointdir=output_
 # Sample and evaluate sets of parameters randomly drawn from the unit cube
 #bo.initRandom(2)
 
-bo.initRandom(init_samples, n_batches = init_batches)
+bo.initRandom(init_samples,n_batches = init_batches)
 
 # Run the optimization loop
 bo.run()

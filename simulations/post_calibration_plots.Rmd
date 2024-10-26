@@ -13,7 +13,7 @@ library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_prod_Nanoro_short"
+exp_label <- "test_tiny"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
