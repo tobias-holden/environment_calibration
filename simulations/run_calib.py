@@ -10,17 +10,20 @@ import torch
 from gpytorch.constraints import GreaterThan
 # from local directory
 import manifest as manifest
-sys.path.append("../")
+sys.path.append("../calibration_common")
 # from calibration_common
-from calibration_common.batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
-from calibration_common.emulators.GP import ExactGP   
-from calibration_common.bo import BO 
+from batch_generators.turbo_thompson_sampling import TurboThompsonSampling 
+from emulators.GP import ExactGP   
+from bo import BO 
 # from environment_calibration_common
-from environment_calibration_common.compare_to_data.run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
-from environment_calibration_common.clean_all import clean_analyzers, clean_logs
-from environment_calibration_common.translate_parameters import translate_parameters
-from environment_calibration_common.helpers import load_coordinator_df
-from environment_calibration_commonmy_func import my_func as myFunc 
+sys.path.append("../environment_calibration_common")
+from clean_all import clean_analyzers, clean_logs
+from translate_parameters import translate_parameters
+from helpers import load_coordinator_df
+from my_func import my_func as myFunc
+sys.path.append("../environment_calibration_common/compare_to_data")
+from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
+
 
 
 # Experiment details
