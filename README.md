@@ -53,13 +53,28 @@ For Quest users, you can build an environment based off of the existing \<emodpy
 The previous step clones all conda-compatible parts of the virtual environment. It can take a while, but you can expect some terminal output along the way...
 
 ``` bash
-Source:      /projects/b1139/environments/emodpy-torch Destination: /projects/b1139/environments/.conda/envs/<YOUR_ENVIRONMENT> Packages: 50 Files: 26196 Downloading and Extracting Packages Preparing transaction: done Verifying transaction: done Executing transaction: done # By downloading and using the cuDNN conda packages, you accept the terms and conditions # of the NVIDIA cuDNN EULA - https://docs.nvidia.com/deeplearning/cudnn/sla/index.html # # To activate this environment, use #     $ conda activate test_torch # To deactivate an active environment, use # #     $ conda deactivate
+Source:      /projects/b1139/environments/emodpy-torch 
+Destination: /projects/b1139/environments/.conda/envs/<YOUR_ENVIRONMENT> 
+Packages: 50 Files: 26196 
+Downloading and Extracting Packages 
+Preparing transaction: done 
+Verifying transaction: done 
+Executing transaction: done 
+# By downloading and using the cuDNN conda packages, you accept the terms and conditions 
+# of the NVIDIA cuDNN EULA - https://docs.nvidia.com/deeplearning/cudnn/sla/index.html # 
+# To activate this environment, use 
+#     $ conda activate test_torch 
+# To deactivate an active environment, use 
+#     $ conda deactivate
 ```
 
 Because some of the packages in the `emodpy-torch` environment were installed using `pip`, they might not make it through the conda clone step. To add them:
 
 ``` bash
-# Activate your new virtual environment source activate <path/to/env>/<YOUR_ENVIRONMENT> # ex. /projects/b1139/environments/my_environment  # pip install from requirements.txt pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
+# Activate your new virtual environment 
+source activate <path/to/env>/<YOUR_ENVIRONMENT> # ex. /projects/b1139/environments/my_environment  
+# pip install from requirements.txt 
+pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
 ```
 
 </details>
@@ -267,8 +282,8 @@ If transform=="log" : $x_{emod} = 10^{log10(min)+x_{i}*(log10(max)-log10(min))}$
 ### Scoring Simulations vs. Data
 
 Steps taken to report out, analyze, and compare simulation results to targets:
-
-#### (eir_score) Maximum and minimum monthly EIR
+#### Objectives
+##### (eir_score) Maximum and minimum monthly EIR
 
 - Report: InsetChart
 - Analyzer: InsetChartAnalyzer
@@ -281,7 +296,7 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     -  If any monthly EIR **>= 100** or any monthly EIR **== 0** : score = 1
         - Else, score = 0  
 
-#### (shape_score) Normalized monthly clinical incidence in one age group
+##### (shape_score) Normalized monthly clinical incidence in one age group
 
 - Report: MalariaSummaryReport
 - Analyzer: MonthlyIncidenceAnalyzer
@@ -294,7 +309,7 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     - Score = $log(\frac{pop_{ref}!(pop_{sim}+1)!}{(pop_{ref}+pop_{sim}+1)!} * \frac{(cases_{ref}+(cases_{sim})!}{(cases_{ref}!cases_{sim}!} * \frac{(pop_{ref}-(cases_{ref})!(pop_{sim}-cases_{sim})!}{((pop_{ref}-(cases_{ref})+(pop_{sim}-cases_{sim}))!})$
         - ${\color{red}\text{Currently hard-coded with presumed reference and simulation population of 1000}}$
       
-#### (intensity_score) Average annual clinical incidence in one age group
+##### (intensity_score) Average annual clinical incidence in one age group
 
 - Report: MalariaSummaryReport
 - Analyzer: MonthlyIncidenceAnalyzer
@@ -305,7 +320,7 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     - Average annual incidence across years
     - Score = $e^{((|incidence_{sim}-incidence_{ref}|) / incidence_{ref})}$ 
 
-#### (prevalence_score) All-age PCR prevalence by month and year
+##### (prevalence_score) All-age PCR prevalence by month and year
 
 - Report: InsetChart
 - Analyzer: InsetChart Analyzer
@@ -315,7 +330,7 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     -  Score each month-year as $\sqrt{|prev_{sim}-prev_{ref}|^2}$
     -  Average score across month-years
  
-#### (prevalence_score) Microscopy prevalence by month and year in one age group
+##### (pfpr_score) Microscopy prevalence by month and year in one age group
 ${\color{red}\text{Not yet tested}}$
 - Report: MalariaSummaryReport
 - Analyzer: MonthlyPfPRAnalyzer
@@ -325,3 +340,59 @@ ${\color{red}\text{Not yet tested}}$
     -  Average PfPR in each month-year across runs
     -  Score each month-year as $\sqrt{|pfpr_{sim}-pfpr_{ref}|^2}$
     -  Average score across month-years
+
+#### Weighting and Summary Score
+
+For each objective_score calculated, a weight is described in **my_weights.csv**:
+
+Final score = $-\Sigma (objective_score*weight)$
+    - If any objective_score is missing or NA, a value of **10** is given post-weighting
+    - Because the optimization function is a *maximizing* function, we negate the total score
+
+Example: from the simulation with setup
+
+| simulation_coordinator.csv| | | |weights.csv | |
+|---------------------------|-|-|-|------------|-|
+|incidence_comparison|TRUE|||eir_score|10|
+|incidence_comparison_frequency|monthly|||shape_score|0.001|
+|incidence_comparison_agebin|100|||intensity_score|1|
+|prevalence_comparison|TRUE|||prevalence_score|10|
+|prevalence_comparison_diagnostic|PCR|||||
+
+$score= (10\times{}eir\\_score) + (0.001\times{}shape\\_score) + intensity\\_score + (10\times{}prevalence\\_score)$
+
+For the first `init_batches` training rounds:
+- Save the best (highest) score
+
+In later, post-training rounds:  
+- If the best score in this round is **worse** (lower) than the current best
+    - `success_counter` resets to zero (or stays there)
+    - `failure_counter' increases by one
+- If the best score in this round is **better** (higher) than the current best
+    - `success_counter` increases by one
+    - `failure_counter' resets to zero (or stays there)
+
+### Emulation
+
+Between rounds, an ExactGP is trained on the \[`batch_size` x `n_parameters`\] unit input vector $X$ and the [1 x `n_objectives`] score output vector $Y$
+
+The GP is a surrogate model based on a Multivarate Normal Distribution with mean function (my_func) and covariance  
+    - Mean function is basically my_func : Y(X)  
+    - Covariance kernel is Matern5/2, which allows the GP propose any function that is 2x differentiable
+
+The model fit to maximize marginal log likelihood has `length_scale` hyperparameters for each input parameter to describe the strength of correlation between scores across values of the parameter  
+    - This is sort of like the "sensitivity" of the score to changes in the parameter
+
+### TuRBO Thompson Sampling
+
+Initially the Trust Region spans the entire domain \[0,1\] of each input parameter  
+- if `success_counter` meets `success_tolerance` : expand search region proportionally to lengthscales for each parameter, and reset `success_counter` to 0
+- if `failure_counter` meets `failure_tolerance` : shrink search region proportionally to lengthscales for each parameter, and reset `failure_counter` to 0 
+
+1. the GP emulator is used to predict the scores at **5,000** candidate locations in the unit parameter space within the Trust Region
+
+2. candidate parameter sets with the top `batch_size` predicted scores are selected for the next round of simulation 
+
+
+The process of translating parameters -> running simulations -> scoring objectives -> fitting GP emulator -> Acquiring samples
+continues until `max_eval` simulations have been run *and* scored.

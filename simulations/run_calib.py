@@ -29,7 +29,7 @@ from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_sc
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_fixedPop"
+exp_label = "test_prod"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -38,7 +38,7 @@ calib_coord = pd.read_csv(os.path.join(manifest.input_files_path,"calibration_co
 # Botorch details
 calib_coord = calib_coord.set_index("site")
 init_samples=int(calib_coord.at[Site,"init_size"])
-init_batches =  int(calib_coord.at[Site,"init_batches"]) #1 
+init_batches =  int(calib_coord.at[Site,"init_batches"])  
 emulator_batch_size = int(calib_coord.at[Site, 'batch_size'])
 gp_max_eval = int(calib_coord.at[Site, 'max_eval'])
 failure_limit = int(calib_coord.at[Site, 'failure_limit'])

@@ -8,12 +8,11 @@ editor_options:
 
 ```{r}
 library(tidyverse)
-library(ggforce)
 library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_fixedPop"
+exp_label <- "test_prod"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -151,7 +150,7 @@ scores %>%
   mutate(eir_flag=eir_score>0) %>%
   select(param_set,shape_score,intensity_score,prevalence_score,eir_score,eir_flag) %>%
   gather("score_type","value",-c("param_set",eir_flag)) %>%
-  ggplot(aes(x=param_set,y=value, shape=eir_flag)) +
+  ggplot(aes(x=param_set,y=value)) +
   geom_point(data=.%>%filter(!(param_set %in% imps) & !eir_flag))  +
   geom_point(data=.%>%filter(!(param_set %in% imps) & eir_flag),
              aes(shape="EIR OOB"),size=0.5)  +
@@ -161,22 +160,25 @@ scores %>%
   facet_wrap(~score_type,scales="free_y") +
   theme_minimal(base_size=16) +
   labs(color=NULL,shape=NULL) +
-  guides(shape="none") +
+  #guides(shape="none") +
   scale_shape_manual(values=c(4,19,21)) +
   xlab("Parameter Set #") + ylab("Score")
 ggsave(paste(score_folder,paste("scores_by_objective.png",sep="_"),sep='/'),height = 8,width=8)
 
 
 scores %>%
-  filter(param_set %in% imps) %>%
+  #filter(param_set %in% imps) %>%
   group_by(round) %>% filter(score==min(score)) %>%
   select(round,shape_score,intensity_score,prevalence_score,eir_score) %>%
   gather("score_type","value",-c("round")) %>%
   ggplot(aes(x=round,y=value)) +
   geom_bar(aes(fill=factor(score_type)),
-           stat="identity",width=1) +
-  labs(fill=NULL) +
-  theme_minimal(base_size=16)
+           stat="identity",width=0.9) +
+  labs(fill="Best Parameter Set") +
+  ylab("score") + xlab("Round")+
+  scale_x_continuous(breaks=seq(0,max(scores$round),1))+
+  theme_minimal(base_size=16) +
+  theme(panel.grid.minor.x=element_blank())
 
 # Plot parameter convergence
 
@@ -239,14 +241,85 @@ tp %>%
   mutate(param_set=param_set+batch_size*as.numeric(round)) %>%
   select(param_set,parameter,transformation,emod_value,unit_value) -> TP
 
+
+
+
 scores %>% left_join(TP) %>% 
+  select(-c(emod_value,transformation))%>%
   gather("score_type","score",c("eir_score","intensity_score","prevalence_score","shape_score")) %>%
-  ggplot(aes(x=unit_value,y=score)) +
-  facet_wrap(score_type~parameter,scales="free_y") +
-  geom_point(aes(color=param_set)) +
+  spread(key = parameter, value=unit_value) -> spread_df
+  
+spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
+  summarize(total_score=sum(score)) %>%
+  arrange(-total_score)%>%
+  ggplot(aes(x=CONST_Multiplier,y=TEMPR_Multiplier)) +
+  geom_point(aes(color=log10(total_score))) +
+  labs(color="log(Y)")+
   scale_color_distiller(palette="Spectral") +
   theme_minimal(base_size=12) +
-  theme(legend.position="bottom")
+  theme(legend.position="top")
+
+spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
+  summarize(total_score=sum(score)) %>%
+  arrange(-total_score)%>%
+  ggplot(aes(x=WATEV_Multiplier,y=Temperature_Shift)) +
+  geom_point(aes(color=log10(total_score))) +
+  labs(color="log(Y)")+
+  scale_color_distiller(palette="Spectral") +
+  theme_minimal(base_size=12) +
+  theme(legend.position="top")
+
+for(r in seq(0,max(scores$round),1)){
+  
+  
+  spread_df %>% 
+  filter(round<=r)%>%
+  group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
+  summarize(total_score=sum(score)) %>%
+  arrange(-total_score)%>%
+  ggplot(aes(x=CONST_Multiplier,y=TEMPR_Multiplier)) +
+  geom_point(aes(color=log10(total_score))) +
+  labs(color="log(Y)")+
+  scale_color_distiller(palette="Spectral") +
+  theme_minimal(base_size=12) +
+  theme(legend.position="top") -> p1
+
+spread_df %>% 
+  filter(round<=r)%>%
+  group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
+  summarize(total_score=sum(score)) %>%
+  arrange(-total_score)%>%
+  ggplot(aes(x=WATEV_Multiplier,y=Temperature_Shift)) +
+  geom_point(aes(color=log10(total_score))) +
+  labs(color="log(Y)")+
+  scale_color_distiller(palette="Spectral") +
+  theme_minimal(base_size=12) +
+  theme(legend.position="top") -> p2
+  
+  print(p1 + p2)
+  
+  spread_df %>%
+    filter(round<=r)%>%
+    ggplot(aes(x=Temperature_Shift,y=CONST_Multiplier))  +
+    facet_wrap(~score_type,scales="free_y") +
+    geom_point(aes(color=log(score))) +
+    scale_color_distiller(palette="Spectral") +
+    theme_minimal(base_size=12) +
+    theme(legend.position="right") -> pp3
+
+  spread_df %>%
+    filter(round<=r)%>%
+    ggplot(aes(x=TEMPR_Multiplier,y=WATEV_Multiplier))  +
+    facet_wrap(~score_type,scales="free_y") +
+    geom_point(aes(color=log(score))) +
+    scale_color_distiller(palette="Spectral") +
+    theme_minimal(base_size=12) +
+    theme(legend.position="right") -> pp4
+
+  #print(pp3 | pp4)
+}
+
+
 
 
 ```
