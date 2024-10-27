@@ -29,7 +29,7 @@ from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_sc
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_search_fix"
+exp_label = "test_small"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 

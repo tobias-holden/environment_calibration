@@ -282,8 +282,14 @@ If transform=="log" : $x_{emod} = 10^{log10(min)+x_{i}*(log10(max)-log10(min))}$
 ### Scoring Simulations vs. Data
 
 Steps taken to report out, analyze, and compare simulation results to targets:
+
 #### Objectives
-##### (eir_score) Maximum and minimum monthly EIR
+
+<details>
+
+<summary>(eir_score) Maximum and minimum monthly EIR
+
+</summary>
 
 - Report: InsetChart
 - Analyzer: InsetChartAnalyzer
@@ -295,8 +301,13 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     -  Calculate minimum and maximum EIR across all month-years
     -  If any monthly EIR **>= 100** or any monthly EIR **== 0** : score = 1
         - Else, score = 0  
+</details>
 
-##### (shape_score) Normalized monthly clinical incidence in one age group
+<details>
+
+<summary>(shape_score) Normalized monthly clinical incidence in one age group
+
+</summary>
 
 - Report: MalariaSummaryReport
 - Analyzer: MonthlyIncidenceAnalyzer
@@ -308,8 +319,14 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     - Average normalized incidence per month across years
     - Score = $log(\frac{pop_{ref}!(pop_{sim}+1)!}{(pop_{ref}+pop_{sim}+1)!} * \frac{(cases_{ref}+(cases_{sim})!}{(cases_{ref}!cases_{sim}!} * \frac{(pop_{ref}-(cases_{ref})!(pop_{sim}-cases_{sim})!}{((pop_{ref}-(cases_{ref})+(pop_{sim}-cases_{sim}))!})$
         - ${\color{red}\text{Currently hard-coded with presumed reference and simulation population of 1000}}$
-      
-##### (intensity_score) Average annual clinical incidence in one age group
+
+</details>
+
+<details>
+
+<summary>(intensity_score) Average annual clinical incidence in one age group
+
+</summary>
 
 - Report: MalariaSummaryReport
 - Analyzer: MonthlyIncidenceAnalyzer
@@ -319,8 +336,13 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     - Average annual incidence across months in each year
     - Average annual incidence across years
     - Score = $e^{((|incidence_{sim}-incidence_{ref}|) / incidence_{ref})}$ 
+</details>
 
-##### (prevalence_score) All-age PCR prevalence by month and year
+<details>
+
+<summary>(prevalence_score) All-age PCR prevalence by month and year
+
+</summary>
 
 - Report: InsetChart
 - Analyzer: InsetChart Analyzer
@@ -329,10 +351,19 @@ Steps taken to report out, analyze, and compare simulation results to targets:
     -  Average PCR Parasite Prevalence in each month-year across runs
     -  Score each month-year as $\sqrt{|prev_{sim}-prev_{ref}|^2}$
     -  Average score across month-years
- 
-##### (pfpr_score) Microscopy prevalence by month and year in one age group
+
+</details>
+
+<details>
+
+<summary>(pfpr_score) Microscopy prevalence by month and year in one age group
+
+</summary>
+
 ${\color{red}\text{Not yet tested}}$
-- Report: MalariaSummaryReport
+
+
+- Report: MalariaSummaryReport  
 - Analyzer: MonthlyPfPRAnalyzer
 - Output: PfPR_monthly.csv
 - Scoring: `compare_PfPR_prevalence(site,agebin)`
@@ -340,6 +371,8 @@ ${\color{red}\text{Not yet tested}}$
     -  Average PfPR in each month-year across runs
     -  Score each month-year as $\sqrt{|pfpr_{sim}-pfpr_{ref}|^2}$
     -  Average score across month-years
+
+</details>
 
 #### Weighting and Summary Score
 
