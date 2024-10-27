@@ -29,7 +29,7 @@ from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_sc
 
 # Experiment details
 Site="Nanoro"
-exp_label = "test_prod"
+exp_label = "test_search_fix"
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
@@ -74,10 +74,15 @@ class Problem:
         os.makedirs(wdir,exist_ok=True)
             
         Y0=myFunc(X,wdir)
+        # Clean up any non-score columns returned by myfunc
+        ps = Y0['param_set']
+        Y0 = Y0.filter(like='_score')
+        Y0['param_set']=ps
+        # Get sum of scores per param set
         Y1 = pd.melt(Y0, id_vars="param_set")
         Y1 = Y1.groupby("param_set")['value'].agg('sum').reset_index(name='score')
-        
         params=Y1['param_set']
+        # Negate score (for maximimzing)
         Y=Y1['score']*-1.0
         xc = []
         yc = []
