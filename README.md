@@ -356,11 +356,11 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 
 <details>
 
-<summary>(pfpr_score) Microscopy prevalence by month and year in one age group
+<summary>(pfpr_score) Microscopy prevalence by month and year in one age group ${\color{red}\text{Not yet tested}}$
 
 </summary>
 
-${\color{red}\text{Not yet tested}}$
+
 
 
 - Report: MalariaSummaryReport  
