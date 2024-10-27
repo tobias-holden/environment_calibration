@@ -395,3 +395,26 @@ Initially the Trust Region spans the entire domain \[0,1\] of each input paramet
 
 The process of translating parameters -> running simulations -> scoring objectives -> fitting GP emulator -> Acquiring samples
 continues until `max_eval` simulations have been run *and* scored.
+
+## Tips for adding new objectives
+
+To add a new objective (example: vector_species_mix), you may need to
+
+1. Make changes to files *here* in your project directory to allow for control of new objective
+    - simulation_inputs/simulation_coordinator.csv :
+        - Add logical flag for inclusion (ex. 'vector_mix_comparison')
+        - Add reference_dataset path (ex. 'vector_mix_reference')
+    - simulation_inputs/weights.csv:
+        - Add row with weight for new objective (ex. 'vector_mix_score')
+    
+    Different objectives may require more controls (ex. agebin, frequency, diagnostic, etc.)
+        
+2. Make changes to files in your fork of the environment_calibration_common module
+    - helpers.py : add logic for including EMOD reports in simulation
+    - analyzers/analyzer_collection.py : define new analyzer collect simulation output from reporter  
+    - analyzers/analyze.py: add logic for when to require analyzer
+    - compare_to_data/calculate_all_scores.py :
+        - add function to compare outputs of analyzer to reference_data and produce a score by parameter set (ex. 'compare_vector_mix()')
+        - add logic to include scores produced in compute_all_scores()
+    - compare_to_data/run_full_comparison.py : 
+        - add logic to compute_scores_across_site() for weighting score and handling missing values
