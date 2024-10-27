@@ -188,7 +188,7 @@ pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
 
 3.  Set up calibration scheme
 
-    -   Example **calib_coordinator.csv**
+    -   Example **calibration_coordinator.csv**
 
         | init_size | init_batches | batch_size | max_eval | failure_limit |
         |:---------:|:------------:|:----------:|:--------:|:-------------:|
