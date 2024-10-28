@@ -19,14 +19,14 @@ Before following the steps below, please **fork** this repository and clone it t
 For Quest users:
 
 ``` bash
-#navigate to your home directory or desired project location (ex. /projects/b1139)
+#navigate to your home directory or desired project location (ex. /projects/<your_net_id>/)
 cd ~
 
 # initialize git
 git init
 
-# clone repository
-git clone <ssh path to your fork of the repository>
+# clone repository and submodules
+git clone <ssh path to your fork of the repository> --recursive
 ```
 
 <details>
@@ -214,14 +214,29 @@ Output from each round of calibration 0-`n_batches`:
 
     -   translated_params.csv
 
-    *Files pertaining to the best-scoring parameter set*
+    *Files pertaining to the best-scoring parameter set, if a new one is identified*
 
-    -   emod.best.csv\
-    -   emod.ymax.txt\
-    -   EIR_range.csv\
-    -   ACI.csv\
-    -   incidence\_`site`.png\
+    -   emod.best.csv  
+        | |parameter|param_set|unit_value|emod_value|min|max|team_default|transformation|type|
+        |-|---------|---------|----------|----------|---|---|------------|--------------|----|
+        |0|Temperature_Shift|||||||||
+        |1|CONST_Multiplier|||||||||
+        |2|TEMPR_Multiplier|||||||||
+        |3|WATEV_Multiplier|||||||||     
+    -   emod.ymax.txt : best score so far, y_max  
+    -   EIR_range.csv :  
+        | |param_set|minEIR|maxEIR|
+        |-|---------|------|------|
+        |||||  
+    -   ACI.csv  
+        | |param_set|agebin|Inc|
+        |-|---------|------|------|
+        |||||  
+    -   incidence\_`site`.png  
+        ![alt text](sample_output/incidence_Nanoro.png)
     -   prevalence\_`site`.png
+        ![alt text](sample_output/prevalence_Nanoro.png)
+      
 
     *A copy of the simulation_output folder containing analyzed outputs*
 
@@ -264,13 +279,13 @@ The GP emulator emplyed by Botorch works with input values $x_{i}$ that are stan
 
 If transform=="none" : $x_{emod} = min + x_{i}*(max-min)$
 
--   Temperature_Shift
+-   Temperature_Shift : Shift (in degrees) to apply to daily air and land temperature series 
 
 If transform=="log" : $x_{emod} = 10^{log10(min)+x_{i}*(log10(max)-log10(min))}$
 
--   CONSTANT_Multiplier
--   TEMPR_Multiplier
--   WATEV_Multiplier
+-   CONSTANT_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Constant"
+-   TEMPR_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Temporary Rainfall"
+-   WATEV_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Water Vegetation"
 
 ### Scoring Simulations vs. Data
 
@@ -360,7 +375,9 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 
 For each objective_score calculated, a weight is described in **weights.csv**:
 
-Final score = $-\Sigma (objective_score*weight)$ - If any objective_score is missing or NA, a value of **10** is given post-weighting - Because the optimization function is a *maximizing* function, we negate the total score
+Final score = $-\Sigma (objective_score*weight)$  
+- If any objective_score is missing or NA, a value of **10** is given post-weighting
+- Because the optimization function is a *maximizing* function, we negate the total score
 
 Example: from the simulation with setup
 
@@ -374,9 +391,10 @@ Example: from the simulation with setup
 
 $score= (10\times{}eir\\_score) + (0.001\times{}shape\\_score) + intensity\\_score + (10\times{}prevalence\\_score)$
 
-For the first `init_batches` training rounds: - Save the best (highest) score
+For the first `init_batches` training rounds:  
+- Save the best (highest) score
 
-In later, post-training rounds:\
+In later, post-training rounds:
 
 -   If the best score in this round is **worse** (lower) than the current best
 
