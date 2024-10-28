@@ -214,14 +214,29 @@ Output from each round of calibration 0-`n_batches`:
 
     -   translated_params.csv
 
-    *Files pertaining to the best-scoring parameter set*
+    *Files pertaining to the best-scoring parameter set, if a new one is identified*
 
-    -   emod.best.csv\
-    -   emod.ymax.txt\
-    -   EIR_range.csv\
-    -   ACI.csv\
-    -   incidence\_`site`.png\
+    -   emod.best.csv  
+        | |parameter|param_set|unit_value|emod_value|min|max|team_default|transformation|type|
+        |-|---------|---------|----------|----------|---|---|------------|--------------|----|
+        |0|Temperature_Shift|||||||||
+        |1|CONST_Multiplier|||||||||
+        |2|TEMPR_Multiplier|||||||||
+        |3|WATEV_Multiplier|||||||||     
+    -   emod.ymax.txt : best score so far, y_max  
+    -   EIR_range.csv :  
+        | |param_set|minEIR|maxEIR|
+        |-|---------|------|------|
+        |||||  
+    -   ACI.csv  
+        | |param_set|agebin|Inc|
+        |-|---------|------|------|
+        |||||  
+    -   incidence\_`site`.png  
+        ![alt text](sample_output/incidence_Nanoro.png)
     -   prevalence\_`site`.png
+        ![alt text](sample_output/prevalence_Nanoro.png)
+      
 
     *A copy of the simulation_output folder containing analyzed outputs*
 
