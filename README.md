@@ -19,14 +19,14 @@ Before following the steps below, please **fork** this repository and clone it t
 For Quest users:
 
 ``` bash
-#navigate to your home directory or desired project location (ex. /projects/b1139)
+#navigate to your home directory or desired project location (ex. /projects/<your_net_id>/)
 cd ~
 
 # initialize git
 git init
 
-# clone repository
-git clone <ssh path to your fork of the repository>
+# clone repository and submodules
+git clone <ssh path to your fork of the repository> --recursive
 ```
 
 <details>
