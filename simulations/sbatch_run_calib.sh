@@ -11,5 +11,5 @@
 
 module purge all
 
-/projects/b1139/environments/emodpy-torch/bin/python run_calib.py
+<path>/<to>/<your virtual environment>/bin/python run_calib.py
 
