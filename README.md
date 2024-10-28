@@ -82,6 +82,8 @@ pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
 
 <br>
 
+0.  Update **VENV_PATH** in manifest.py and supply the same virtual environment to the placeholder in sbatch_run_calib.sh
+
 1.  Describe reference site simulation options
 
     -   Example **simulation_coordinator.csv**
