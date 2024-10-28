@@ -264,13 +264,13 @@ The GP emulator emplyed by Botorch works with input values $x_{i}$ that are stan
 
 If transform=="none" : $x_{emod} = min + x_{i}*(max-min)$
 
--   Temperature_Shift
+-   Temperature_Shift : Shift (in degrees) to apply to daily air and land temperature series 
 
 If transform=="log" : $x_{emod} = 10^{log10(min)+x_{i}*(log10(max)-log10(min))}$
 
--   CONSTANT_Multiplier
--   TEMPR_Multiplier
--   WATEV_Multiplier
+-   CONSTANT_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Constant"
+-   TEMPR_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Temporary Rainfall"
+-   WATEV_Multiplier : Scale factor to apply to maximum capacity for mosquito larvae in habitats of type "Water Vegetation"
 
 ### Scoring Simulations vs. Data
 
@@ -360,7 +360,9 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 
 For each objective_score calculated, a weight is described in **weights.csv**:
 
-Final score = $-\Sigma (objective_score*weight)$ - If any objective_score is missing or NA, a value of **10** is given post-weighting - Because the optimization function is a *maximizing* function, we negate the total score
+Final score = $-\Sigma (objective_score*weight)$  
+- If any objective_score is missing or NA, a value of **10** is given post-weighting
+- Because the optimization function is a *maximizing* function, we negate the total score
 
 Example: from the simulation with setup
 
@@ -374,9 +376,10 @@ Example: from the simulation with setup
 
 $score= (10\times{}eir\\_score) + (0.001\times{}shape\\_score) + intensity\\_score + (10\times{}prevalence\\_score)$
 
-For the first `init_batches` training rounds: - Save the best (highest) score
+For the first `init_batches` training rounds:  
+- Save the best (highest) score
 
-In later, post-training rounds:\
+In later, post-training rounds:
 
 -   If the best score in this round is **worse** (lower) than the current best
 
