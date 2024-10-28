@@ -12,12 +12,13 @@ library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_search_fix"
+exp_label <- "test_small"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
 # Batch size
 batch_size <- coord_df$batch_size
+batch_size <- 100
 # Create folders to store post-calibration plots
 performance_folder<-paste("output",exp_label,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
@@ -188,7 +189,9 @@ tp %>%
   mutate(emod_value=ifelse(transformation=="log",log10(emod_value),emod_value)) %>%
   mutate(unit_value=gsub("\\)","",gsub("tensor\\(","",unit_value))) %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
-  mutate(param_set=param_set+batch_size*as.numeric(round)) -> tp
+  mutate(param_set=param_set+batch_size*as.numeric(round)) %>%
+  mutate(param_set=ifelse(round>1,param_set-100,param_set)) %>%
+  mutate(round=as.numeric(round))-> tp
 
 tp %>%
   left_join(scores %>% select(param_set,eir_score)) %>%
@@ -263,6 +266,7 @@ spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_M
   scale_color_distiller(palette="Spectral") +
   theme_minimal(base_size=12) +
   theme(legend.position="top")
+
 
 for(r in seq(0,max(spread_df$round),1)){
   spread_df %>% 

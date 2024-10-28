@@ -26,10 +26,12 @@ sys.path.append("../environment_calibration_common/compare_to_data")
 from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_scores_across_site,save_rangeEIR,save_AnnualIncidence 
 
 
-
-# Experiment details
+####################################
+# Experiment details - this is the only section you need to edit with the script
 Site="Nanoro"
 exp_label = "test_small"
+####################################
+
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
