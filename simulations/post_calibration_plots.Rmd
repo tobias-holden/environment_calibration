@@ -12,7 +12,7 @@ library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_small"
+exp_label <- "test_smc"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -189,7 +189,6 @@ tp %>%
   mutate(unit_value=gsub("\\)","",gsub("tensor\\(","",unit_value))) %>%
   mutate(unit_value=as.numeric(unit_value)) %>%
   mutate(param_set=param_set+batch_size*as.numeric(round)) %>%
-  mutate(param_set=ifelse(round>1,param_set-100,param_set)) %>%
   mutate(round=as.numeric(round))-> tp
 
 tp %>%
@@ -248,7 +247,6 @@ scores %>% left_join(tp %>% mutate(round=as.integer(round)) %>% select(param_set
   
 spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
   summarize(total_score=sum(score)) %>%
-  arrange(-total_score)%>%
   ggplot(aes(x=CONST_Multiplier,y=TEMPR_Multiplier)) +
   geom_point(aes(color=log10(total_score))) +
   labs(color="log(Y)")+
@@ -266,6 +264,15 @@ spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_M
   theme_minimal(base_size=12) +
   theme(legend.position="top")
 
+spread_df %>% group_by(param_set,round,CONST_Multiplier,TEMPR_Multiplier,WATEV_Multiplier,Temperature_Shift) %>%
+  summarize(total_score=sum(score)) %>%
+  arrange(-total_score)%>%
+  ggplot(aes(x=WATEV_Multiplier,y=Temperature_Shift)) +
+  geom_point(aes(color=factor(round))) +
+  labs(color="log(Y)")+
+  theme_minimal(base_size=12) +
+  theme(legend.position="top")
+
 
 for(r in seq(0,max(spread_df$round),1)){
   spread_df %>% 
@@ -275,6 +282,7 @@ for(r in seq(0,max(spread_df$round),1)){
     arrange(-total_score)%>%
     ggplot(aes(x=CONST_Multiplier,y=TEMPR_Multiplier)) +
     geom_point(aes(color=log10(total_score))) +
+    coord_fixed() +
     labs(color="log(Y)")+
     scale_color_distiller(palette="Spectral") +
     theme_minimal(base_size=12) +
@@ -287,6 +295,7 @@ for(r in seq(0,max(spread_df$round),1)){
     arrange(-total_score)%>%
     ggplot(aes(x=WATEV_Multiplier,y=Temperature_Shift)) +
     geom_point(aes(color=log10(total_score))) +
+    coord_fixed(xlim = c(0,1),ylim=c(0,1)) +
     labs(color="log(Y)")+
     scale_color_distiller(palette="Spectral") +
     theme_minimal(base_size=12) +
@@ -294,7 +303,7 @@ for(r in seq(0,max(spread_df$round),1)){
   
   print(p1 + p2)
   
-  ggsave(paste(parameters_folder,paste("search_space_x_total_score","round",glue("{r}.png"),sep="_"),sep='/'),height = 8,width=10)
+  ggsave(paste(parameters_folder,paste("search_space_x_total_score","round",glue("{r}.png"),sep="_"),sep='/'),height = 8,width=12)
 
   
   spread_df %>% 
@@ -304,6 +313,7 @@ for(r in seq(0,max(spread_df$round),1)){
     geom_point(aes(color=log10(score))) +
     facet_wrap(~score_type)+
     labs(color="log(Y)")+
+    xlim(c(0,1)) + ylim(c(0,1))+
     scale_color_distiller(palette="Spectral") +
     theme_minimal(base_size=12) +
     theme(legend.position="top") -> pp3
@@ -315,13 +325,14 @@ for(r in seq(0,max(spread_df$round),1)){
     geom_point(aes(color=log10(score))) +
     facet_wrap(~score_type)+
     labs(color="log(Y)")+
+    xlim(c(0,1)) + ylim(c(0,1))+
     scale_color_distiller(palette="Spectral") +
     theme_minimal(base_size=12) +
     theme(legend.position="top") -> pp4
   
   print(pp3 | pp4)
   
-    ggsave(paste(parameters_folder,paste("search_space_x_objective_scores","round",glue("{r}.png"),sep="_"),sep='/'),height = 8,width=10)
+    ggsave(paste(parameters_folder,paste("search_space_x_objective_scores","round",glue("{r}.png"),sep="_"),sep='/'),height = 8,width=12)
 
 }
 ```
