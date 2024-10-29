@@ -8,7 +8,7 @@ Status Summary
 
 |               | Tested                                                                                               | *Not Yet Tested*                              |
 |:-------------:|:------------------------------------|:-------------------|
-| Interventions | treatment-seeking<br>non-malaria fever treatment<br>SMC(drug)<br>bednets (season- and age-dependent) | IRS<br>Campaigns (MSAT/MDA)<br>SMC (vaccDrug) |
+| Interventions | treatment-seeking<br>non-malaria fever treatment<br>SMC(vaccDrug)<br>bednets (season- and age-dependent) | IRS<br>Campaigns (MSAT/MDA)|
 |    Vectors    | *arabiensis*<br>*gambiae*<br>*funestus*                                                              |                                               |
 |   Habitats    | constant<br>temporary rainfall<br>water vegetation                                                   | linear spline                                 |
 
