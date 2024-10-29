@@ -33,3 +33,6 @@ COMPS_ID/
 !COMPS_ID/version.txt
 
 README.html
+
+manifest.py
+sbatch_run_calib.py
