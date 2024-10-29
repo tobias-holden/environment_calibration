@@ -38,7 +38,8 @@ git clone <ssh path to your fork of the repository> --recursive
 For Quest users, you can build an environment based off of the existing \<emodpy-torch\> environment.
 
 ``` bash
-# clone conda-compatible parts of existing virtual environment conda create --prefix <path/to/env> --name <YOUR_ENVIRONMENT> --clone /projects/b1139/environments/emodpy-torch
+# clone conda-compatible parts of existing virtual environment
+conda create --prefix <path/to/env> --name <YOUR_ENVIRONMENT> --clone /projects/b1139/environments/emodpy-torch
 ```
 
 -   The suggested path/to/env for Quest users is /projects/b1139/environments
