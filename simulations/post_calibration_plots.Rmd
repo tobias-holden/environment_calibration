@@ -18,7 +18,6 @@ coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 training_batches <- coord_df$init_batches
 # Batch size
 batch_size <- coord_df$batch_size
-batch_size <- 100
 # Create folders to store post-calibration plots
 performance_folder<-paste("output",exp_label,"performance",sep='/')
 if(!(dir.exists(performance_folder))){dir.create(performance_folder)}
