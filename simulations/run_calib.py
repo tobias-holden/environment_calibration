@@ -193,7 +193,9 @@ bo.run()
 
 ##### Post-calibration steps
 
-# This section calls on the overall 
+# This section calls on the overall post_calibration_analysis pipeline, and
+# will only run once the max_eval limit has been reached in the fitting
+# process. By default, all relevant steps are included
 
 post_calibration_analysis(experiment=exp_label,
                           length_scales_by_objective=False,           # Fit single-task GP per site-metric (within-host only)

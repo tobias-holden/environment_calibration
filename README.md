@@ -394,6 +394,15 @@ Output from each round of calibration 0-`n_batches`:
 
 For any round in which there was an improvement in overall score will contain all of the same files shown above for LF_0. If no improvment, only those shown for LF\_<n_batches> above will appear.
 
+After the calibration loop completes, `post_calibration_analysis` produces a few meta-performance plots and fits a GP to each objective separately for more detailed parameter sensitivity analysis. This produces the files:
+
+-   performance/
+    -    GP/
+        -    <scoretype>_LS.csv   # For each scoretype calculated
+        -    length_scales.png
+        -    predictions.png
+        -    timing.png
+
 Additionally, plots of score and parameter convergence over time can be produced by running **post_calibration_plots.Rmd**, with the appropriate <exp_label>.
 
 This produces new files inside simulations/output/<exp_label>:
@@ -404,7 +413,13 @@ This produces new files inside simulations/output/<exp_label>:
         -   scores_by_objective.png\
     -   parameters/
         -   unit_parameters.png\
-        -   emod_parameters.png
+        -   emod_parameters.png\
+        -   search_space_x_objective_scores_round_<n>.png
+        -   search_space_x_total_score_round_<n>.png
+
+    -   GP/
+        -   detailed_length_scales.png
+        ![alt text](sample_output/detailed_length_scales.png)
 
 </details>
 
