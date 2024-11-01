@@ -378,15 +378,15 @@ Output from each round of calibration 0-`n_batches`:
     *A copy of the simulation_output folder containing analyzed outputs*
 
     -   SO/`site`/
-        -   InsetChart.csv\
-        -   ...\
+        -   InsetChart.csv
+        -   ...
         -   finished.txt
 
 -   ...\
 
 -   LF\_`n_batches`/
 
-    -   translated_params.csv\
+    -   translated_params.csv
     -   SO/`site`/
         -   InsetChart.csv
         -   ...
@@ -409,11 +409,11 @@ This produces new files inside simulations/output/<exp_label>:
 
 -   performance/
     -   scores/
-        -   scores_total.png\
-        -   scores_by_objective.png\
+        -   scores_total.png
+        -   scores_by_objective.png
     -   parameters/
-        -   unit_parameters.png\
-        -   emod_parameters.png\
+        -   unit_parameters.png
+        -   emod_parameters.png
         -   search_space_x_objective_scores_round_<n>.png
         -   search_space_x_total_score_round_<n>.png
 
