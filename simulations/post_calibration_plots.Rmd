@@ -12,7 +12,7 @@ library(patchwork)
 library(glue)
 
 # exp_labeleriment name
-exp_label <- "test_new_env"
+exp_label <- "test_large"
 coord_df <- read.csv("../simulation_inputs/calibration_coordinator.csv")
 # Number of training batches
 training_batches <- coord_df$init_batches
@@ -363,10 +363,29 @@ LS %>%
   geom_tile(color="white",
             aes(fill=log10(value))) +
   scale_fill_distiller(palette="RdGy",direction = 1) +
-  theme(axis.text.x = element_text(angle=-45,vjust=0,hjust=0)) +
-  coord_fixed() + xlab("") + ylab("")
+  theme(axis.text.x = element_text(angle=-45,vjust=0,hjust=0),
+        legend.position="right",
+        legend.title.position = "top",
+        legend.direction = "horizontal",
+        legend.title = element_text(size=12)) +
+  coord_fixed() + xlab("") + ylab("") +
+  labs(fill="Log10(lengthscale)")
+
+LS %>% 
+  ggplot(aes(x=parameter,y=gsub("_score","",score_type))) +
+  theme_minimal(base_size=16)+
+  geom_tile(color="white",
+            aes(fill=log10(value))) +
+  scale_fill_distiller(palette="RdGy",direction = 1) +
+  theme(axis.text.x = element_text(angle=-45,vjust=0,hjust=0),
+        legend.position="right",
+        legend.title.position = "top",
+        legend.direction = "horizontal",
+        legend.title = element_text(size=12)) +
+  coord_fixed() + xlab("") + ylab("") +
+  labs(fill="Log10(lengthscale)")
   
-ggsave(paste(GP_folder,paste("detailed_length_scales.png"),sep='/'),height = 8,width=8)
+ggsave(paste(GP_folder,paste("detailed_length_scales.png"),sep='/'),height = 6,width=8)
 
 ```
 
