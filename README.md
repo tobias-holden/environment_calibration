@@ -199,10 +199,14 @@ Some packages need to be installed or specified using `pip`. To add them:
 ``` bash
 # pip install others emodpy-malaria and idmtools
 pip install emodpy-malaria --ignore-installed --index-url=https://packages.idmod.org/api/pypi/pypi-production/simple 
-# pip install idm_tools_platform_slurm
-pip install idmtools_platform_slurm --ignore-installed --index-url=https://packages.idmod.org/api/pypi/pypi-production/simple
+
+# copy idm_tools_platform_slurm v1.7.11 from emodpy-torch environment, along with dist-info
+cp -r /projects/b1139/environments/emodpy-torch/lib/python3.9/site-packages/idmtools_platform_slurm/ /<PATH TO YOUR ENVIRONMENT>/lib/python3.9/site-packages/idmtools_platform_slurm
+cp -r /projects/b1139/environments/emodpy-torch/lib/python3.9/site-packages/idmtools_platform_slurm-1.7.11.dist-info /<PATH TO YOUR ENVIRONMENT>/lib/python3.9/site-packages/idmtools_platform_slurm-1.7.11.dist-info
+
 # pip install others from requirements.txt
 pip install -r /projects/b1139/environments/emodpy-torch/requirements.txt
+
 # pip install a few more required packages 
 pip install gpytorch
 pip install botorch==0.8.1
