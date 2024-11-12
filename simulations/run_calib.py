@@ -28,14 +28,14 @@ from run_full_comparison import plot_allAge_prevalence,plot_incidence,compute_sc
 
 ####################################
 # Experiment details - this is the only section you need to edit with the script
-Site="Nanoro"
-exp_label = "test_pfpr_short"
+Site=manifest.SITE
+exp_label = manifest.EXPERIMENT_LABEL
 ####################################
 
 output_dir = f"output/{exp_label}"
 best_dir = f"output/{exp_label}" 
 
-calib_coord = pd.read_csv(os.path.join(manifest.input_files_path,"calibration_coordinator.csv"))
+calib_coord = pd.read_csv(manifest.calibration_coordinator_path)
 
 # Botorch details
 calib_coord = calib_coord.set_index("site")
