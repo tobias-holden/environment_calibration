@@ -504,7 +504,7 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 
 <details>
 
-<summary>(prevalence_score) All-age PCR prevalence by month and year</summary>
+<summary>(prevalence_score) PCR prevalence by month and year (*all-age only*)</summary>
 
 -   Report: InsetChart
 -   Analyzer: InsetChart Analyzer
@@ -518,9 +518,9 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 
 <details>
 
-<summary>(pfpr_score) Microscopy prevalence by month and year in one age group </summary>
+<summary>(prevalence_score) Microscopy prevalence by month and year (*by age, or all-ages*) </summary>
 
--   Report: MalariaSummaryReport\
+-   Report: MalariaSummaryReport  
 -   Analyzer: MonthlyPfPRAnalyzer
 -   Output: PfPR_monthly.csv
 -   Scoring: `compare_PfPR_prevalence(site,agebin)`
