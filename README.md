@@ -458,8 +458,8 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 <summary>(eir_score) Maximum and minimum monthly EIR</summary>
 
 -   Report: InsetChart
--   Analyzer: InsetChartAnalyzer
--   Output: InsetChart.csv
+-   Analyzer: EIRAnalyzer
+-   Output: InsetChart_EIR.csv
 -   Scoring: `check_EIR_threshold(site)`
     -   Filter to last 10 years of simulation
     -   Sum daily EIR to monthly EIR in each month-year-run
@@ -507,8 +507,8 @@ Steps taken to report out, analyze, and compare simulation results to targets:
 <summary>(prevalence_score) PCR prevalence by month and year (*all-age only*)</summary>
 
 -   Report: InsetChart
--   Analyzer: InsetChart Analyzer
--   Output: InsetChart.csv
+-   Analyzer: PCRAnalyzer
+-   Output: InsetChart_PCR.csv
 -   Scoring: `compare_all_age_PCR_prevalence(site)`
     -   Average PCR Parasite Prevalence in each month-year across runs
     -   Score each month-year as $\sqrt{|prev_{sim}-prev_{ref}|^2}$
